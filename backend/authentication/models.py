@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 class UserProfile(models.Model):
   user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-  tenant = models.ForeignKey('shop.Tenant', on_delete=models.SET_NULL, null=True)
+  tenant = models.ForeignKey('shops.Tenant', on_delete=models.SET_NULL, null=True)
   role = models.CharField(max_length=20, choices=[('OWNER','Owner'),('TECH','Technician')], 
                           default='OWNER')
 
