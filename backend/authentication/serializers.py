@@ -6,6 +6,7 @@ from allauth.account.models import EmailAddress
 
 
 class UserSerializer(serializers.ModelSerializer):
+  shop_name = serializers.CharField(write_only=True, required=False)
   email = serializers.EmailField(
         required=True,
         validators=[UniqueValidator(queryset=User.objects.all(), message="A user with this email already exists.")])

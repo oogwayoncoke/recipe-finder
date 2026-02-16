@@ -5,13 +5,27 @@ from rest_framework.response import Response
 from rest_framework import status,generics
 from rest_framework.permissions import AllowAny
 from.serializers import UserSerializer
+from .models import UserProfile
+from shops.models import Tenant
 
 
-# 1. THE MISSING VIEW:
+
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
+    
+    def perform_create(self, serializer):
+        shop_name = self.request.data.get('shop_name')
+        user = serializer.save()
+        
+        if shop_name:
+            tenant = Tenant.objects.create(shop_name=shop_name)
+            UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
+        else:
+            invite_token=self.request.data.get('invite_token')\
+            
+            
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -24,7 +38,6 @@ class ConfirmEmailView(APIView):
     def post(self, request):
         key = request.data.get('key')
         
-        # 1. Try to find the confirmation object by key
         confirmation = EmailConfirmationHMAC.from_key(key)
         if not confirmation:
             try:
@@ -32,7 +45,6 @@ class ConfirmEmailView(APIView):
             except EmailConfirmation.DoesNotExist:
                 return Response({'error': 'Invalid key'}, status=status.HTTP_404_NOT_FOUND)
 
-        # 2. Activate the user and mark email as verified
         confirmation.confirm(request)
         user = confirmation.email_address.user
         user.is_active = True
