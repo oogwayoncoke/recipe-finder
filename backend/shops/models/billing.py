@@ -8,11 +8,8 @@ class Invoice(models.Model):
                                     related_name='invoice')
   
   calculated_total = models.DecimalField(max_digits=12, decimal_places=2, null=False)
-  
   is_paid = models.BooleanField(default=False, null=False)
-  
   pdf_copy = models.FileField(null=True,blank=True)
-  
   issued_date = models.DateField(auto_now_add=True)
   
   @property
