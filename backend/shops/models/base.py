@@ -38,7 +38,8 @@ class Customer(models.Model):
     return self.full_name
   
 class Technician(models.Model):
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE,                               null=False)
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE,
+                               null=False)
     full_name = models.CharField(max_length=255, null=False)
     role = models.CharField(max_length=50, null=False)
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2,
