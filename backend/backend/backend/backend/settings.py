@@ -62,10 +62,7 @@ INSTALLED_APPS = [
     "dj_rest_auth.registration",
     'rest_framework',
     'corsheaders',
-    'Authentication',
-    'Repair_Shop',
-    "phonenumber_field",
-    
+    'authentication',
     
 ]
 SITE_ID=1
@@ -172,7 +169,7 @@ ACCOUNT_LOGIN_METHODS = {'username', 'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
-ACCOUNT_ADAPTER = "Authentication.adapter.AccountAdapter"
+ACCOUNT_ADAPTER = "authentication.adapter.AccountAdapter"
 
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

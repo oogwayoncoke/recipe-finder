@@ -19,7 +19,8 @@ load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -62,8 +63,8 @@ INSTALLED_APPS = [
     "dj_rest_auth.registration",
     'rest_framework',
     'corsheaders',
-    'Authentication',
-    'Repair_Shop',
+    'authentication',
+    'shops',
     "phonenumber_field",
     
     
@@ -85,7 +86,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
 ]
-ROOT_URLCONF = "backend.urls"
+ROOT_URLCONF = "core.urls"
 
 TEMPLATES = [
     {
@@ -172,7 +173,7 @@ ACCOUNT_LOGIN_METHODS = {'username', 'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
-ACCOUNT_ADAPTER = "Authentication.adapter.AccountAdapter"
+ACCOUNT_ADAPTER = "authentication.adapter.AccountAdapter"
 
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

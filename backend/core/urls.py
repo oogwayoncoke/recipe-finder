@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.conf.urls.static import static
 from django.conf import settings
 from django.urls import path,include
-from Authentication.views import CreateUserView,ConfirmEmailView
+from authentication.views import CreateUserView,ConfirmEmailView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
@@ -11,7 +11,7 @@ urlpatterns = [
     path("authentication/token/",TokenObtainPairView.as_view(), name= "get_token"),
     path("authentication/token/refresh/",TokenRefreshView.as_view(),name="refresh"),
     path("authentication-auth/", include("rest_framework.urls")),
-    path("authentication/",include("Authentication.urls")),
+    path("authentication/",include("authentication.urls")),
     path("authentication/user/verify-email/", ConfirmEmailView.as_view(), name="confirm_email"),
     
 ]
