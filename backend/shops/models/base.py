@@ -16,7 +16,7 @@ class Tenant(models.Model):
     return self.shop_name
 class TenantModel(models.Model):
     tenant = models.ForeignKey(
-        Tenant, 
+        'shops.Tenant', 
         db_index=True, 
         on_delete=models.CASCADE
     )
