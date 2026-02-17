@@ -3,8 +3,6 @@ from .base import TenantModel
 from phonenumber_field.modelfields import PhoneNumberField
 
 class Customer(TenantModel):
-  tenant = models.ForeignKey('shop.Tenant', on_delete=models.CASCADE, 
-                             related_name='customers')
   full_name = models.CharField(max_length=255, null=False)
   address_street = models.CharField(max_length=255, blank=True)
   address_city = models.CharField(max_length=255, blank=True)
@@ -16,6 +14,7 @@ class Customer(TenantModel):
 class CustomerPhone(TenantModel):
   customer = models.ForeignKey(Customer, related_name='phones', on_delete=models.CASCADE)
   phone_number = PhoneNumberField(region='EG',null=False)
+  
   
 class Technician(TenantModel):
     tenant = models.ForeignKey('shop.Tenant', on_delete=models.CASCADE,

@@ -35,8 +35,6 @@ class WorkOrder(TenantModel):
     return f'order#{self.id} - {self.item.device_type} ({self.status})'
   
 class Inventory(models.Model):
-  tenant = models.ForeignKey('shops.Tenant', on_delete=models.CASCADE,null=False)
-  barcode = models.CharField(max_length=100, unique=True, db_index=True,default="TEMP_BARCODE")
   part_name = models.CharField(max_length=255, null=False)
   stock_level= models.IntegerField(default=0, null=False)
   base_price = models.DecimalField(max_digits=10,decimal_places=2, null=False)
@@ -49,6 +47,7 @@ class PartUsage(models.Model):
   work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE,null=False)
   inventory_item = models.ForeignKey(Inventory, on_delete=models.CASCADE, null=False, 
                                      related_name='parts_used')
+  tecnician = models.ForeignKey('shop.Technician',on_delete=models.CASCADE)
   quantity_used = models.IntegerField(default=1, null= False)
   price_at_use = models.DecimalField(max_digits=10, decimal_places=2, editable=False,
                                      null=True,
