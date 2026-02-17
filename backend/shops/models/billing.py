@@ -6,9 +6,9 @@ class Invoice(TenantModel):
   work_order = models.OneToOneField('shops.WorkOrder',
                                     on_delete=models.CASCADE,
                                     related_name='invoice')
-  subtotal = models.DecimalField(max_digits=12, decimal_places=2, null=False)
-  tax = models.DecimalField(max_digits=12, decimal_places=2, null=False)
-  calculated_total = models.DecimalField(max_digits=12, decimal_places=2, null=False)
+  subtotal = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
+  tax = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
+  calculated_total = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
   is_paid = models.BooleanField(default=False, null=False)
   pdf_copy = models.FileField(null=True,blank=True)
   issued_date = models.DateField(auto_now_add=True)

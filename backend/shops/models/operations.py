@@ -13,16 +13,13 @@ class WorkOrder(TenantModel):
   item = models.ForeignKey('shops.Item', on_delete=models.CASCADE, null=False, 
                            related_name='work_order')
   description = models.CharField(max_length=255, null=True)
-  estimate_price = models.DecimalField(max_digits=10, decimal_places=2)
+  estimate_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
   qr_code_key = models.CharField(
         max_length=50, 
         unique=True, 
         db_index=True, 
         editable=False, 
         default=uuid.uuid4)
-  intake_photo = models.ImageField(upload_to='work_orders/intake/',
-                                   null=True,
-                                   blank=True)
   assigned_tech = models.ForeignKey('shops.Technician', on_delete=models.SET_NULL, 
                                     null=True, 
                                     blank=True)
@@ -47,7 +44,7 @@ class PartUsage(models.Model):
   work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE,null=False)
   inventory_item = models.ForeignKey(Inventory, on_delete=models.CASCADE, null=False, 
                                      related_name='parts_used')
-  tecnician = models.ForeignKey('shop.Technician',on_delete=models.CASCADE)
+  technician = models.ForeignKey('shops.Technician',on_delete=models.CASCADE, null=True, blank=True)
   quantity_used = models.IntegerField(default=1, null= False)
   price_at_use = models.DecimalField(max_digits=10, decimal_places=2, editable=False,
                                      null=True,

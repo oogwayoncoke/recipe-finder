@@ -17,8 +17,6 @@ class CustomerPhone(TenantModel):
   
   
 class Technician(TenantModel):
-    tenant = models.ForeignKey('shop.Tenant', on_delete=models.CASCADE,
-                               null=False)
     full_name = models.CharField(max_length=255, null=False)
     role = models.CharField(max_length=50, null=False)
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2,
