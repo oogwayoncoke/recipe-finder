@@ -1,12 +1,13 @@
 from django.db import models
+from .base import TenantModel
 
-
-class Invoice(models.Model):
+class Invoice(TenantModel):
   tenant = models.ForeignKey('shops.Tenant', on_delete=models.CASCADE,null=False)
   work_order = models.OneToOneField('shops.WorkOrder',
                                     on_delete=models.CASCADE,
                                     related_name='invoice')
-  
+  subtotal = models.DecimalField(max_digits=12, decimal_places=2, null=False)
+  tax = models.DecimalField(max_digits=12, decimal_places=2, null=False)
   calculated_total = models.DecimalField(max_digits=12, decimal_places=2, null=False)
   is_paid = models.BooleanField(default=False, null=False)
   pdf_copy = models.FileField(null=True,blank=True)

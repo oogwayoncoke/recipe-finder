@@ -25,42 +25,10 @@ class Item(models.Model):
   def __str__(self):
     return f'{self.device_type} - {self.customer.full_name}'
 
+class ElectronicItem(Item):
+  password_hint = models.CharField(max_length=255, blank=True)
+  os_version = models.CharField(max_length=255, blank=True)
 
-class WearableItem(Item):
-    water_resistance_rating = models.CharField(max_length=50, blank=True)
-    battery_cycle_count = models.PositiveIntegerField(default=0)
-    firmware_version = models.CharField(max_length=50, blank=True)
-    sensor_data = models.JSONField(default=dict, 
-                                   help_text="Store health for Heart Rate, GPS, etc.")
-
-
-class HomeVideoItem(Item):
-    PANEL_CHOICES = [('OLED', 'OLED'),
-                     ('QLED', 'QLED'),
-                     ('LED', 'LED'),]
-    
-    panel_type = models.CharField(max_length=4, choices=PANEL_CHOICES)
-    resolution_max = models.CharField(max_length=20, default="4K")
-    backlit_hours = models.PositiveIntegerField(default=0)
-    is_smart = models.BooleanField(default=True)
-
-class ComputingItem(Item):
-  processor = models.CharField(max_length=100, blank=True)
-  ram = models.CharField(max_length=50, blank=True)
-  gpu = models.CharField(max_length=100, blank=True)
-  storage = models.CharField(max_length=50, blank=True)
-
-class MobileItem(Item):
-  IMEI = models.CharField(max_length=100, blank=True)
-  battery_health = models.IntegerField(null=True,blank=True)
-  screen_type = models.CharField(max_length=100, blank=True)
-
-class GamingItem(Item):
-  storage_capacity = models.CharField(max_length=50, blank=True)
-  controller_type = models.CharField(max_length=50, blank=True)
-  firmware = models.CharField(max_length=50, blank=True)
-  
-  
-class AudioItem(Item):
-  firmware_version = models.CharField(max_length=50, blank=True)
-  case_serial = models.CharField(max_length=50, blank=True) 
+class MechanicalItem(Item):
+  fuel_type = models.CharField(max_length=255, blank=True)
+  engine_displacement = models.CharField(max_length=255, blank=True)
