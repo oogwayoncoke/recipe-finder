@@ -59,10 +59,9 @@ class Service(models.Model):
    cost = models.DecimalField(max_digits=10, decimal_places=2, null=False)
    
    
-class Attachment(models.Model):
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, 
-                                   related_name='attachments')
-    file_path = models.FileField(upload_to='work_orders/attachments/')
-    upload_type = models.CharField(max_length=50) # e.g., 'Intake', 'Final', 'Internal'
-    time_stamp = models.DateTimeField(auto_now_add=True)
-
+class StatusUpdate(TenantModel):
+    # Cannot exist without the WorkOrder 
+    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='history')
+    status_label = models.CharField(max_length=50) 
+    note = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
