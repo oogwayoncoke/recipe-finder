@@ -3,6 +3,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from allauth.account.models import EmailAddress
+from .models import UserProfile
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -31,24 +32,28 @@ class UserSerializer(serializers.ModelSerializer):
         defaults={'primary': True, 'verified': False}
     )
     email_obj.send_confirmation(request, signup=True)
-    
     return user
     
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
-       return super().get_token(user)
+       token = super().get_token(user)
        
        try:
-           profile = user.userprofile
-           token['tenant_id'] = str(profile.tenant.tenant_id) if profile.tenant else None
-       except Exception as e:
-           if user.is_superuser or user.is_staff:
-                token['tenant_id'] = "GLOBAL_ADMIN"
-                token['role'] = "SUPERUSER"
-           else:
+            profile = UserProfile.objects.filter(user=user).first()
+            
+            if profile:
+                token['tenant_id'] = str(profile.tenant.tenant_id)
+                token['role'] = profile.role
+                print(f"--- SUCCESS: Token updated for {user.username} ---")
+            else:
                 token['tenant_id'] = None
                 token['role'] = "UNAUTHORIZED"
+                print(f"--- WARNING: No profile found for {user.username} in database ---")
+                
+       except Exception as e:
+            print(f"--- SERIALIZER ERROR: {str(e)} ---")
+            
        return token
     
        return user
