@@ -39,21 +39,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
        token = super().get_token(user)
        
-       try:
-            profile = UserProfile.objects.filter(user=user).first()
+       profile = UserProfile.objects.filter(user=user).first()
             
-            if profile:
-                token['tenant_id'] = str(profile.tenant.tenant_id)
-                token['role'] = profile.role
-                print(f"--- SUCCESS: Token updated for {user.username} ---")
-            else:
-                token['tenant_id'] = None
-                token['role'] = "UNAUTHORIZED"
-                print(f"--- WARNING: No profile found for {user.username} in database ---")
-                
-       except Exception as e:
-            print(f"--- SERIALIZER ERROR: {str(e)} ---")
+       if profile:
+           token['tenant_id'] = str(profile.tenant.tenant_id)
+           token['role'] = profile.role
+            
+       else:
+           token['tenant_id'] = None
+           token['role'] = "UNAUTHORIZED"
+               
             
        return token
     
-       return user

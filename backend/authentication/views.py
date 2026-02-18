@@ -21,21 +21,31 @@ class CreateUserView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     
     def perform_create(self, serializer):
-        # DEBUG: Let's see what Postman is actually sending
-        print(f"DEBUG DATA: {self.request.data}") 
+        with transaction.atomic():
+            shop_name = self.request.data.get('shop_name')
+            invite_token = self.request.data.get('invite_token')
         
-        shop_name = self.request.data.get('shop_name')
-        user = serializer.save()
+            user = serializer.save()
         
-        if shop_name:
-            tenant = Tenant.objects.create(shop_name=shop_name, owner_email=user.email)
-            UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
-            print("--- PROFILE CREATED SUCCESSFULLY ---")
-        else:
-            print("--- WARNING: NO SHOP_NAME IN REQUEST ---")
-                # If we get here, the token will ALWAYS be empty because there's no shop
-               
-              
+            if shop_name:
+                ttenant = Tenant.objects.create(
+                    shop_name=shop_name, 
+                    owner_email=user.email
+                )
+                UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
+            
+            elif invite_token:
+                try:
+                    tenant = Tenant.objects.get(tenant_id=invite_token)
+                    UserProfile.objects.create(user=user, tenant=tenant, role='TECH')
+                except(Tenant.DoesNotExist,ValueError):
+                    user.delete()
+                    raise ValidationError({"invite_token": "Invalid invite token. This shop does not exist."})
+            else:
+                user.delete()
+                raise ValidationError({"invite_token": "Invalid shop code. This shop does not exist."})
+                
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
