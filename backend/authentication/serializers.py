@@ -30,7 +30,10 @@ class UserSerializer(serializers.ModelSerializer):
         email=user.email, 
         defaults={'primary': True, 'verified': False}
     )
-
+    email_obj.send_confirmation(request, signup=True)
+    
+    return user
+    
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -48,4 +51,4 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 token['role'] = "UNAUTHORIZED"
        return token
     
-    
+       return user

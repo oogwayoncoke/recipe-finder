@@ -12,7 +12,7 @@ from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 from .models import UserProfile
 from shops.models import Tenant
 from .serializers import UserSerializer
-from.serializers import UserSerializer, MyTokenObtainPairSerializer
+from .serializers import UserSerializer, MyTokenObtainPairSerializer
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -30,7 +30,7 @@ class CreateUserView(generics.CreateAPIView):
             if shop_name:
                 tenant = Tenant.objects.create(shop_name=shop_name)
                 UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
-            
+
             elif invite_token:
                 try:
                     tenant = Tenant.objects.get(tenant_id=invite_token)
@@ -41,7 +41,6 @@ class CreateUserView(generics.CreateAPIView):
             else:
                 user.delete()
                 raise ValidationError({"invite_token": "Invalid shop code. This shop does not exist."})
-                
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
