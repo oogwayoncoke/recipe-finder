@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
+from shops.models.base import Tenant, Invitation
 
 
 from .models import UserProfile
@@ -27,24 +28,33 @@ class CreateUserView(generics.CreateAPIView):
         
             user = serializer.save()
         
+            
             if shop_name:
-                ttenant = Tenant.objects.create(
+                tenant = Tenant.objects.create(
                     shop_name=shop_name, 
                     owner_email=user.email
                 )
                 UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
             
+           
             elif invite_token:
                 try:
-                    tenant = Tenant.objects.get(tenant_id=invite_token)
-                    UserProfile.objects.create(user=user, tenant=tenant, role='TECH')
-                except(Tenant.DoesNotExist,ValueError):
-                    user.delete()
-                    raise ValidationError({"invite_token": "Invalid invite token. This shop does not exist."})
-            else:
-                user.delete()
-                raise ValidationError({"invite_token": "Invalid shop code. This shop does not exist."})
-                
+                    invitation = Invitation.objects.get(token=invite_token, is_used=False)
+                    
+                    
+                    UserProfile.objects.create(
+                        user=user, 
+                        tenant=invitation.tenant, 
+                        role=invitation.role,
+                        tech_level=invitation.tech_level
+                    )
+
+                    invitation.is_used = True
+                    invitation.save()
+                    
+                except Invitation.DoesNotExist:
+                    raise ValidationError({"invite_token": "Invalid or already used invitation token."})
+    
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
