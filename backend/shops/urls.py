@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import GenerateInvitationView, WorkOrderCreateView
+from .views import CreateActionLinkView, WorkOrderCreateView,ValidateOneClickView
 
 urlpatterns = [
-    path('invites/generate/', GenerateInvitationView.as_view(), name='generate-invite'),
+    path('invites/', CreateActionLinkView.as_view(), name='create-action-linx'),
+    path('validate/<uuid:token_id>/',ValidateOneClickView.as_view(), name='validate'),
     path('work-order/create/', WorkOrderCreateView.as_view(), name='create-work-order'),
 ]

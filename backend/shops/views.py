@@ -1,48 +1,17 @@
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.views import APIView
 from rest_framework import status, views, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import WorkOrder
-from .serializers import InvitationSerializer, WorkOrderCreateSerializer
+from .serializers import WorkOrderCreateSerializer,ActionTokenSerializer
+from authentication.models import UserProfile,User
+from .models.auth import ActionToken
 from authentication.models import UserProfile
-
-class GenerateInvitationView(views.APIView):
-  permission_classes = [IsAuthenticated]
-  
-  def post(self, request):
-        try:
-            user_profile = UserProfile.objects.get(user=request.user)
-        except UserProfile.DoesNotExist:
-            return Response({"error": "Profile not found."}, status=404)
-
-        # 1. GET THE INPUTS
-        # Look at what they actually sent in the JSON body
-        requested_role = request.data.get('role')
-
-        if user_profile.role == 'TECH' and  requested_role != 'CUSTOMER':
-
-          
-                return Response(
-                    {"error": "Access Denied: Technicians are restricted to Customer intake only."}, 
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-        serializer = InvitationSerializer(data=request.data)
-        if serializer.is_valid():
-            requested_tech_level = request.data.get('tech_level', 'NONE')
-            invite = serializer.save(
-                tenant=user_profile.tenant,
-                role='CUSTOMER' if user_profile.role == 'TECH' else requested_role,
-                tech_level=requested_tech_level if user_profile.role == 'OWNER' else 'NONE'
-            )
-            
-            
-            return Response({
-                "message": f"{invite.role} invitation generated",
-                "token": invite.token
-            }, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 class WorkOrderCreateView(generics.CreateAPIView):
     queryset = WorkOrder.objects.all()
     
@@ -51,3 +20,68 @@ class WorkOrderCreateView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         serializer.save()
+        
+
+from .serializers import ActionTokenSerializer
+
+
+
+
+class CreateActionLinkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            profile = request.user.profile
+            tenant = profile.tenant
+            user_role = profile.role  
+        except AttributeError:
+            return Response({"error": "User profile not found."}, status=403)
+
+        requested_type = request.data.get('token_type')
+        
+        if requested_type == 'EMP_INVITE' and user_role not in ['ADMIN', 'OWNER']:
+            return Response({
+                "error": "Only shop owners or admins can invite new staff."
+            }, status=403)
+    
+User = get_user_model()
+@method_decorator(csrf_exempt, name='dispatch')
+class ValidateOneClickView(APIView):
+
+    permission_classes = [] 
+    authentication_classes = [] 
+
+    def post(self, request, token_id):
+        token = get_object_or_404(ActionToken, id=token_id)
+        if token.is_used:
+            return Response({"error": "This link has already been used."}, status=400)
+        
+
+        user_exists = User.objects.filter(username=token.phone_number).exists()
+        
+        user, created = User.objects.get_or_create(username=token.phone_number)
+
+  
+        UserProfile.objects.update_or_create(
+            user=user,
+            defaults={
+                'tenant': token.tenant,
+                'role': 'TECH' if token.token_type == 'EMP_INVITE' else 'CUSTOMER',
+                'tech_level': token.tech_level
+            }
+        )
+
+        refresh = RefreshToken.for_user(user)
+        refresh['tenant_id'] = str(token.tenant.tenant_id)
+        refresh['role'] = 'TECH' if token.token_type == 'EMP_INVITE' else 'CUSTOMER'
+        
+        token.is_used = True
+        token.save()
+
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "is_new_user": not user_exists or not user.has_usable_password(), # <--- Key flag
+            "redirect_to": "/setup-profile" if (not user_exists or not user.has_usable_password()) else "/dashboard"
+        }, status=200)

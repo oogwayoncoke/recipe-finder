@@ -1,14 +1,7 @@
 from rest_framework import serializers
-from .models.base import Invitation
 from .models import Item, WorkOrder,Customer
+from .models.auth import ActionToken
 
-class InvitationSerializer(serializers.ModelSerializer):
-  tenant_name = serializers.ReadOnlyField(source='tenant.shop_name')
-  
-  class Meta:
-    model = Invitation
-    fields = ['token', 'email', 'tenant_name', 'created_at']
-    read_only_fields = ['token', 'created_at']
     
     
 class WorkOrderCreateSerializer(serializers.ModelSerializer):
@@ -59,3 +52,21 @@ class WorkOrderCreateSerializer(serializers.ModelSerializer):
             **validated_data
         )
         return work_order
+    
+class ActionTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActionToken
+        # We don't include 'id' or 'is_used' in inputs; they are auto-generated
+        fields = ['phone_number', 'token_type', 'related_ticket', 'metadata', 'expires_at']
+        extra_kwargs = {
+            'expires_at': {'required': False},
+            'related_ticket': {'required': False},
+        }
+
+    def validate_phone_number(self, value):
+        # Basic validation: strip spaces and ensure it's a decent length
+        # You can add more complex regex here later
+        cleaned = value.replace(" ", "")
+        if len(cleaned) < 10:
+            raise serializers.ValidationError("Phone number is too short.")
+        return cleaned

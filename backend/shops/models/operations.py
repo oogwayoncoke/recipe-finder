@@ -68,16 +68,39 @@ class WorkOrder(TenantModel):
 
 
   
-class Inventory(models.Model):
-  part_name = models.CharField(max_length=255, null=False)
-  stock_level= models.IntegerField(default=0, null=False)
-  base_price = models.DecimalField(max_digits=10,decimal_places=2, null=False)
-  reorder_point = models.IntegerField(default=5)
+class Inventory(TenantModel):
+    PRODUCT_TYPES = (
+        ('PART', 'Repair Part'),
+        ('RETAIL', 'Retail Product'),
+    )
+
+    name = models.CharField(max_length=255)
+    sku = models.CharField(max_length=100, blank=True, null=True)
+    
+    product_type = models.CharField(
+        max_length=10, 
+        choices=PRODUCT_TYPES, 
+        default='RETAIL'
+    )
+
+
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    retail_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+ 
+    stock_count = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+
+    specifications = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        unique_together = ('tenant', 'sku')
+
+    def __str__(self):
+        return f"{self.name} ({self.stock_count})"
   
-  def __str__(self):
-    return f'{self.part_name} - {self.stock_level} in stock'
-  
-class PartUsage(models.Model):
+class PartUsage(TenantModel):
   work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE,null=False)
   inventory_item = models.ForeignKey(Inventory, on_delete=models.CASCADE, null=False, 
                                      related_name='parts_used')
@@ -87,14 +110,13 @@ class PartUsage(models.Model):
                                      null=True,
                                      blank=True)
   
-class Service(models.Model):
+class Service(TenantModel):
    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE,null=False)
    service_name = models.CharField(max_length=255, null=False)
    cost = models.DecimalField(max_digits=10, decimal_places=2, null=False)
    
    
 class StatusUpdate(TenantModel):
-    # Cannot exist without the WorkOrder 
     work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='history')
     status_label = models.CharField(max_length=50) 
     note = models.TextField(blank=True)

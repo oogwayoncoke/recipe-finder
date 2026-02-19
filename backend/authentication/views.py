@@ -7,7 +7,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
-from shops.models.base import Tenant, Invitation
+from shops.models import Tenant
+from shops.models.auth import ActionToken
 
 
 from .models import UserProfile
@@ -25,22 +26,28 @@ class CreateUserView(generics.CreateAPIView):
         with transaction.atomic():
             shop_name = self.request.data.get('shop_name')
             invite_token = self.request.data.get('invite_token')
-        
+            
+            # Initial save - we will modify activity status below
             user = serializer.save()
         
-            
+            # PATH 1: NEW OWNER (Needs Email Verification)
             if shop_name:
                 tenant = Tenant.objects.create(
                     shop_name=shop_name, 
                     owner_email=user.email
                 )
                 UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
+                
+                # Owners must verify email, so they stay inactive
+                user.is_active = False 
+                user.save()
             
-           
+            # PATH 2: INVITED STAFF (Auto-verified by Token)
             elif invite_token:
                 try:
-                    invitation = Invitation.objects.get(token=invite_token, is_used=False)
-                    
+                    # Swapping 'Invitation' for your new 'ActionToken' logic if applicable
+                    # but keeping your variable name to avoid breaking code.
+                    invitation = ActionToken.objects.get(id=invite_token, is_used=False)
                     
                     UserProfile.objects.create(
                         user=user, 
@@ -51,16 +58,18 @@ class CreateUserView(generics.CreateAPIView):
 
                     invitation.is_used = True
                     invitation.save()
+
+                    # Bypass email verification for staff
+                    user.is_active = True 
+                    user.save()
                     
-                except Invitation.DoesNotExist:
+                except (ActionToken.DoesNotExist, ValidationError):
                     raise ValidationError({"invite_token": "Invalid or already used invitation token."})
-    
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
-
+            
+            else:
+                # Security fallback: If neither, deactivate user
+                user.is_active = False
+                user.save()
 class ConfirmEmailView(APIView):
     permission_classes = [AllowAny]
 

@@ -32,3 +32,8 @@ class Technician(TenantModel):
     
     def __str__(self):
       return f'{self.full_name}({self.role} - ${self.hourly_rate}/hr)'
+
+class TechnicianPhone(TenantModel):
+  technician = models.ForeignKey(Technician, related_name='phones', on_delete=models.CASCADE)
+  phone_number = PhoneNumberField(region='EG',null=False)
+  
