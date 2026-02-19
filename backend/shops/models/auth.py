@@ -7,7 +7,5 @@ class PhoneVerification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
 
-    def is_expired(self):
-        # Logic to check if 5 minutes have passed
-        pass
+
       
