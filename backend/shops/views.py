@@ -1,8 +1,8 @@
-from rest_framework import status, views
+from rest_framework import status, views, generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models.base import Invitation
-from .serializers import InvitationSerializer
+from .models import WorkOrder
+from .serializers import InvitationSerializer, WorkOrderCreateSerializer
 from authentication.models import UserProfile
 
 class GenerateInvitationView(views.APIView):
@@ -42,3 +42,12 @@ class GenerateInvitationView(views.APIView):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class WorkOrderCreateView(generics.CreateAPIView):
+    queryset = WorkOrder.objects.all()
+    
+    serializer_class = WorkOrderCreateSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        serializer.save()

@@ -16,9 +16,9 @@ class Item(models.Model):
                              related_name='items')
   customer = models.ForeignKey('shops.Customer', on_delete=models.CASCADE, null=False, 
                                related_name='devices')
-  device_image = models.ImageField(upload_to='device_labels/', null=True, blank=True)
+  brand = models.CharField(max_length=100, null=True,blank=True)
+  model_name = models.CharField(max_length=100, null=True,blank=True)
   serial_number = models.CharField(max_length=100, null=True, blank=True)
-  raw_ocr_data = models.JSONField(default=dict, blank=True)
   device_type = models.CharField(max_length=4, choices=DEVICE_TYPES)
   specifications = models.JSONField(default=dict, blank=True)
   
