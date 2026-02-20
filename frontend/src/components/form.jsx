@@ -40,10 +40,9 @@ function Form({ route, method }) {
         localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
         navigate("/");
       } else {
-        alert("Signup successful! Please check your email to verify.");
-        if (res.data.role) {
-          localStorage.setItem("user_role", res.data.role);
-        }
+        alert(
+          "Signup successful! Please check your email to verify your account.",
+        );
         navigate("/login");
       }
     } catch (error) {
