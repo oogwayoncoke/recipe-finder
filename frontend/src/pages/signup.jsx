@@ -1,5 +1,5 @@
 import Form from "../components/form";
 const Signup = () => {
-  return <Form route="/authentication/user/register/" method="signup"></Form>;
+  return <Form route="/authentication/register/owner/" method="signup"></Form>;
 };
 export default Signup;
