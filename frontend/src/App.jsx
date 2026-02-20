@@ -2,10 +2,11 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import VerifyEmail from "./components/VerifyEmail";
 import Home from "./pages/home";
+import Induction from "./pages/Induction";
+import Invite from "./pages/Invites";
 import Login from "./pages/login";
 import NotFound from "./pages/notfound";
 import Signup from "./pages/signup";
-
 function Logout() {
   localStorage.clear();
   return <Navigate to="/login/" />;
@@ -30,8 +31,17 @@ function App() {
         />
         <Route path="/login" element={<Login></Login>} />
         <Route path="/logout" element={<Logout></Logout>} />
-        <Route path="/signup" element={<Signup></Signup>} />
+        <Route path="/register" element={<Signup></Signup>} />
         <Route path="/verify-email/:key" element={<VerifyEmail />} />
+        <Route path="/invites" element={<Invite></Invite>} />
+        <Route
+          path="/activate-tech/:tokenId"
+          element={<Induction role="tech" />}
+        />
+        <Route
+          path="/activate-customer/:tokenId"
+          element={<Induction role="customer" />}
+        />
         <Route path="/*" element={<NotFound></NotFound>} />
       </Routes>
     </BrowserRouter>
