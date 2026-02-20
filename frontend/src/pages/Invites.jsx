@@ -21,6 +21,7 @@ const Invite = () => {
       const res = await api.post("/shops/invites/", {
         phone_number: phone,
         token_type: type === "tech" ? "EMP_INVITE" : "CUSTOMER_INVITE",
+        role: type === "tech" ? "TECH" : "CUSTOMER",
       });
 
       const link = `${window.location.origin}/activate-${type}/${res.data.id}`;

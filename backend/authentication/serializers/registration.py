@@ -1,20 +1,16 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
 from authentication.models import UserProfile
 from shops.models import Tenant, WorkOrder, Item
 from shops.models.auth import ActionToken
 from dj_rest_auth.registration.serializers import RegisterSerializer
-from allauth.account.models import EmailAddress, EmailConfirmation 
-from django.contrib.auth import get_user_model
-from allauth.account.utils import complete_signup 
-from allauth.account import app_settings as allauth_settings
+from allauth.account.models import EmailAddress
 
 User = get_user_model()
 
-
-
 class OwnerRegistrationSerializer(RegisterSerializer):
+    # 1. Define the missing fields so the serializer knows what to look for
     username = serializers.CharField(required=True, max_length=150)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
@@ -28,37 +24,30 @@ class OwnerRegistrationSerializer(RegisterSerializer):
         return cleaned_data
 
     def save(self, request=None):
+        # 2. Fix for the 'session' AttributeError: Get request from context
         if request is None:
             request = self.context.get('request')
         
-        with transaction.atomic():
-            user = super().save(request)
-        
-        
-        user.first_name = self.validated_data.get('first_name')
-        user.last_name = self.validated_data.get('last_name')
-        user.save()
-        
-       
-        tenant = Tenant.objects.create(
-            shop_name=self.validated_data.get('shop_name'),
-            first_name=user.first_name,
-            last_name=user.last_name,
-            owner_email=user.email 
-        )
-        
-        
-        if hasattr(user, 'user_profile'):
-            profile = user.user_profile
-            profile.tenant = tenant
-            profile.role = 'OWNER'
-            profile.save()
+        # Capture raw data for Tenant creation before User is saved
+        email = self.validated_data.get('email')
+        shop = self.validated_data.get('shop_name')
 
-        
-        email_address = EmailAddress.objects.get(user=user, email=user.email)
-        email_address.send_confirmation(request, signup=True)
-        
-        return user
+        with transaction.atomic():
+            # 3. Pass request to super().save() for allauth session logic
+            user = super().save(request)
+            
+            # 4. Forge the Tenant and Profile
+            tenant = Tenant.objects.create(shop_name=shop, owner_email=email)
+            UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
+            
+            # Send the confirmation email
+            try:
+                email_address = EmailAddress.objects.get(user=user, email=user.email)
+                email_address.send_confirmation(request, signup=True)
+            except Exception as e:
+                print(f"Email sending failed: {e}")
+                
+            return user
            
           
           

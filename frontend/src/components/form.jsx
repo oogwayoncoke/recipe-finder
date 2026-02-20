@@ -121,7 +121,7 @@ function Form({ route, method }) {
           </>
         )}
 
-        <div className="flex items-center w-3/4 bg-[#13151a] border border-[#4A4439] rounded-lg transition-all focus-within:border-[#C5A059]">
+        <div className="flex items-center w-3/4 bg-[#13151a] border border-[#4A4439] rounded-lg transition-all focus-within:border-[#C5A059] font-serif">
           <input
             type={showPassword ? "text" : "password"}
             value={password1}
