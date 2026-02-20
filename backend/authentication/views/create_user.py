@@ -11,10 +11,10 @@ from shops.models import Tenant
 from shops.models.auth import ActionToken
 
 
-from .models import UserProfile
+from ..models import UserProfile
 from shops.models import Tenant
-from .serializers import UserSerializer
-from .serializers import UserSerializer, MyTokenObtainPairSerializer
+from ..serializers.generics import UserSerializer
+from ..serializers.generics import UserSerializer, MyTokenObtainPairSerializer
 
 
 class CreateUserView(generics.CreateAPIView):

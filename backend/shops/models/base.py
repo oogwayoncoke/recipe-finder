@@ -10,6 +10,8 @@ class Tenant(models.Model):
                                editable=False, 
                                null=False)
   shop_name=models.CharField(max_length=255, null=False)
+  first_name = models.CharField(max_length=255,null=True)
+  last_name = models.CharField(max_length=255,null=True)
   owner_email=models.EmailField(unique=True, null=False)
   preferences = models.JSONField(default=dict, blank=True)
   created_at = models.DateTimeField(auto_now_add=True)

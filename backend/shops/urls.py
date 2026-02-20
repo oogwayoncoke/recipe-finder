@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CreateActionLinkView, WorkOrderCreateView,ValidateOneClickView
+from .views.user_create import CreateActionLinkView, WorkOrderCreateView,ValidateOneClickView
 
 urlpatterns = [
     path('invites/', CreateActionLinkView.as_view(), name='create-action-linx'),

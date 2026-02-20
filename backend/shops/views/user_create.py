@@ -3,14 +3,15 @@ from django.contrib.auth import get_user_model
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
-from rest_framework import status, views, generics
+from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import WorkOrder
-from .serializers import WorkOrderCreateSerializer,ActionTokenSerializer
+from ..models import WorkOrder
+from ..serializers.invites import ActionTokenSerializer
+from ..serializers.operations import WorkOrderCreateSerializer
 from authentication.models import UserProfile,User
-from .models.auth import ActionToken
+from ..models.auth import ActionToken
 from authentication.models import UserProfile
 class WorkOrderCreateView(generics.CreateAPIView):
     queryset = WorkOrder.objects.all()
@@ -22,7 +23,7 @@ class WorkOrderCreateView(generics.CreateAPIView):
         serializer.save()
         
 
-from .serializers import ActionTokenSerializer
+from ..serializers.invites import ActionTokenSerializer
 
 
 

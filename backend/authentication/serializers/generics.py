@@ -3,7 +3,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from allauth.account.models import EmailAddress
-from .models import UserProfile
+from ..models import UserProfile
 
 class UserSerializer(serializers.ModelSerializer):
   shop_name = serializers.CharField(write_only=True, required=False)
