@@ -37,13 +37,35 @@ class CreateActionLinkView(APIView):
             user_role = profile.role  
         except AttributeError:
             return Response({"error": "User profile not found."}, status=403)
-
+        
+            
+            
         requested_type = request.data.get('token_type')
         
         if requested_type == 'EMP_INVITE' and user_role not in ['ADMIN', 'OWNER']:
             return Response({
                 "error": "Only shop owners or admins can invite new staff."
             }, status=403)
+            
+        phone_number = request.data.get('phone_number')
+        role = request.data.get('role', 'TECHNICIAN')
+        tech_level = request.data.get('tech_level', 'NONE')
+        
+        token = ActionToken.objects.create(
+            tenant=tenant,
+            phone_number=phone_number,
+            token_type=requested_type,
+            role=role,
+            tech_level=tech_level
+        )
+
+        if not phone_number:
+            return Response({"error": "Phone number is required."}, status=400)
+        
+        
+        
+        serializer = ActionTokenSerializer(token)
+        return Response(serializer.data, status=201)
     
 User = get_user_model()
 @method_decorator(csrf_exempt, name='dispatch')

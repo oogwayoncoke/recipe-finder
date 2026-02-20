@@ -57,7 +57,8 @@ class ActionTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActionToken
         # We don't include 'id' or 'is_used' in inputs; they are auto-generated
-        fields = ['phone_number', 'token_type', 'related_ticket', 'metadata', 'expires_at']
+        fields = ['id','phone_number', 'token_type', 'related_ticket', 'metadata', 'expires_at']
+        read_only_fields = ['id', 'expires_at']
         extra_kwargs = {
             'expires_at': {'required': False},
             'related_ticket': {'required': False},

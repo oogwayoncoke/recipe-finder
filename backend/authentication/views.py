@@ -27,10 +27,9 @@ class CreateUserView(generics.CreateAPIView):
             shop_name = self.request.data.get('shop_name')
             invite_token = self.request.data.get('invite_token')
             
-            # Initial save - we will modify activity status below
+            
             user = serializer.save()
         
-            # PATH 1: NEW OWNER (Needs Email Verification)
             if shop_name:
                 tenant = Tenant.objects.create(
                     shop_name=shop_name, 
@@ -38,15 +37,14 @@ class CreateUserView(generics.CreateAPIView):
                 )
                 UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
                 
-                # Owners must verify email, so they stay inactive
+                
                 user.is_active = False 
                 user.save()
             
-            # PATH 2: INVITED STAFF (Auto-verified by Token)
+           
             elif invite_token:
                 try:
-                    # Swapping 'Invitation' for your new 'ActionToken' logic if applicable
-                    # but keeping your variable name to avoid breaking code.
+                    
                     invitation = ActionToken.objects.get(id=invite_token, is_used=False)
                     
                     UserProfile.objects.create(
@@ -67,7 +65,7 @@ class CreateUserView(generics.CreateAPIView):
                     raise ValidationError({"invite_token": "Invalid or already used invitation token."})
             
             else:
-                # Security fallback: If neither, deactivate user
+               
                 user.is_active = False
                 user.save()
 class ConfirmEmailView(APIView):
