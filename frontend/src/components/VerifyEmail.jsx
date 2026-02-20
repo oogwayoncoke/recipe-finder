@@ -10,7 +10,7 @@ const VerifyEmail = () => {
   useEffect(() => {
     const confirmEmail = async () => {
       try {
-        await api.post("/authentication/verify-email/", { key });
+        await api.post("/authentication/verify-email/", { key: key });
         setStatus("success");
         setTimeout(() => {
           navigate("/login");

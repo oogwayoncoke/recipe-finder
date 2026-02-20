@@ -34,13 +34,16 @@ function Form({ route, method }) {
 
     try {
       const res = await api.post(route, requestData);
-
+      console.log("Full Backend Response:", res.data);
       if (method === "login") {
         localStorage.setItem(ACCESS_TOKEN, res.data.access);
         localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
         navigate("/");
       } else {
         alert("Signup successful! Please check your email to verify.");
+        if (res.data.role) {
+          localStorage.setItem("user_role", res.data.role);
+        }
         navigate("/login");
       }
     } catch (error) {
