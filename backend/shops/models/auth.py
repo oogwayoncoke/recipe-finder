@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import timedelta
 import datetime
 from django.utils import timezone
 import uuid
@@ -8,15 +9,15 @@ def get_default_expiry():
 
 class ActionToken(models.Model):
     TOKEN_TYPES = (
-        ('EMP_INVITE', 'Employee Invite'),
-        ('CUST_ONBOARD', 'Customer Onboarding'),
+        ('STAFF_INVITE', 'Staff Invite'),
+        ('CUSTOMER_INVITE', 'Customer Invite'), 
     )
     
     ROLE_CHOICES = (
-        ('ADMIN', 'Admin'),
-        ('TECHNICIAN', 'Technician'),
+        ('OWNER', 'Owner'),
+        ('TECH', 'Technician'), 
         ('CUSTOMER', 'Customer'),
-        )
+    )
     
     TECH_LEVEL_CHOICES = (
         ('OSTA', 'Master Technician (Osta)'),
@@ -33,5 +34,10 @@ class ActionToken(models.Model):
     related_ticket = models.ForeignKey('WorkOrder', null=True, blank=True,
                                        on_delete=models.SET_NULL)
     is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(default=get_default_expiry)
     metadata = models.JSONField(default=dict, blank=True)
+    
+    def is_expired(self):
+        expiry_limit = self.created_at + timedelta(hours=48)
+        return timezone.now() > expiry_limit

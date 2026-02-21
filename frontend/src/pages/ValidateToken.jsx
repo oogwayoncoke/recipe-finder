@@ -12,7 +12,7 @@ const ValidateToken = () => {
         const response = await api.get(`/shops/validate/${token}/`);
         const { role } = response.data;
 
-        if (role === "TECHNICIAN") {
+        if (role === "TECH") {
           navigate(`/induction/${token}`);
         } else if (role === "CUSTOMER") {
           navigate(`/work-order-setup/${token}`);

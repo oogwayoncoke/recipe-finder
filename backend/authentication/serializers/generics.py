@@ -4,6 +4,7 @@ from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from allauth.account.models import EmailAddress
 from ..models import UserProfile
+from shops.models import Technician
 
 class UserSerializer(serializers.ModelSerializer):
   shop_name = serializers.CharField(write_only=True, required=False)
@@ -36,18 +37,15 @@ class UserSerializer(serializers.ModelSerializer):
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
-       token = super().get_token(user)
-       
-       profile = UserProfile.objects.filter(user=user).first()
-            
-       if profile:
-           token['tenant_id'] = str(profile.tenant.tenant_id)
-           token['role'] = profile.role
-            
-       else:
-           token['tenant_id'] = None
-           token['role'] = "UNAUTHORIZED"
-               
-            
-       return token
-
+        token = super().get_token(user)
+        
+        profile = getattr(user, 'profile', None)
+             
+        if profile:
+            token['tenant_id'] = str(profile.tenant.tenant_id) if profile.tenant else None
+            token['role'] = profile.role
+            token['tech_level'] = profile.tech_level
+        else:
+            token['role'] = "UNAUTHORIZED"
+                
+        return token

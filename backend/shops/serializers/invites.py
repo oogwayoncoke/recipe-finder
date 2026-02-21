@@ -8,7 +8,6 @@ from ..models.auth import ActionToken
 class ActionTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActionToken
-        # Make sure 'role' is in this list!
         fields = ['id', 'role', 'token_type']
 
     def validate_phone_number(self, value):

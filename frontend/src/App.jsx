@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import VerifyEmail from "./components/VerifyEmail";
-import Home from "./pages/home";
+import Home from "./pages/Home";
 import Induction from "./pages/Induction";
 import Invite from "./pages/Invites";
 import Login from "./pages/login";
@@ -19,14 +19,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/logout" element={<Logout />} />
         <Route path="/register" element={<Signup />} />

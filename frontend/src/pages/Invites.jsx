@@ -1,19 +1,39 @@
-import { useState } from "react";
+import { jwtDecode } from "jwt-decode";
+import { useEffect, useState } from "react";
 import api from "../api";
 
-const Invite = ({ userRole }) => {
+const Invite = () => {
   const [phone, setPhone] = useState("");
   const [type, setType] = useState("customer");
-  const [techLevel, setTechLevel] = useState("sabi");
+  const [techLevel, setTechLevel] = useState("SABI");
   const [loading, setLoading] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
+
+  const token = localStorage.getItem("access");
+  let userRole = null;
+
+  try {
+    if (token) {
+      const decoded = jwtDecode(token);
+      userRole = decoded.role;
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
+  const isOwner = userRole === "OWNER";
+
+  useEffect(() => {
+    if (!isOwner) {
+      setType("customer");
+    }
+  }, [isOwner]);
 
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(inviteLink);
       alert("Link secured to clipboard.");
     } catch (err) {
-      alert(err);
       const textArea = document.createElement("textarea");
       textArea.value = inviteLink;
       document.body.appendChild(textArea);
@@ -34,8 +54,8 @@ const Invite = ({ userRole }) => {
       const payload = {
         phone_number: phone,
         token_type: isTech ? "STAFF_INVITE" : "CUSTOMER_INVITE",
-        role: isTech ? "TECHNICIAN" : "CUSTOMER",
-        tech_level: isTech ? techLevel : null,
+        role: isTech ? "TECH" : "CUSTOMER",
+        tech_level: isTech ? techLevel : "NONE",
       };
 
       const response = await api.post("/shops/invites/", payload);
@@ -44,7 +64,10 @@ const Invite = ({ userRole }) => {
         setInviteLink(`${window.location.origin}/validate/${response.data.id}`);
       }
     } catch (error) {
-      console.error(error.response?.data);
+      alert(
+        error.response?.data?.detail ||
+          "Invitation failed. Verify permissions.",
+      );
     } finally {
       setLoading(false);
     }
@@ -53,7 +76,7 @@ const Invite = ({ userRole }) => {
   return (
     <div className="flex h-screen justify-center items-center bg-[#0f1115]">
       <div className="flex flex-col items-center justify-center bg-[#1a1d23] border border-[#2d3139] rounded-xl p-8 shadow-2xl w-full max-w-lg mx-auto mt-10">
-        <h2 className="text-[#c5a059] text-2xl font-serif tracking-[0.3em] uppercase mb-6">
+        <h2 className="text-[#c5a059] text-2xl font-serif tracking-[0.3em] uppercase mb-6 text-center">
           Issue Invitation
         </h2>
 
@@ -70,7 +93,7 @@ const Invite = ({ userRole }) => {
               placeholder="Phone Number"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="bg-[#13151a] border border-[#4A4439] text-slate-100 rounded-lg p-3 outline-none focus:border-[#C5A059] transition-all placeholder:text-slate-700"
+              className="bg-[#13151a] border border-[#4A4439] text-slate-100 rounded-lg p-3 outline-none focus:border-[#C5A059] transition-all placeholder:text-slate-700 font-sans"
               required
             />
           </div>
@@ -82,16 +105,14 @@ const Invite = ({ userRole }) => {
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="bg-[#13151a] border border-[#4A4439] text-slate-100 rounded-lg p-3 outline-none focus:border-[#C5A059] appearance-none cursor-pointer"
+              className="bg-[#13151a] border border-[#4A4439] text-slate-100 rounded-lg p-3 outline-none focus:border-[#C5A059] appearance-none cursor-pointer font-sans"
             >
               <option value="customer">Customer Access</option>
-              {(!userRole || userRole === "OWNER") && (
-                <option value="tech">Technician Access</option>
-              )}
+              {isOwner && <option value="tech">Technician Access</option>}
             </select>
           </div>
 
-          {type === "tech" && (
+          {type === "tech" && isOwner && (
             <div className="flex flex-col gap-2 animate-in fade-in zoom-in-95 duration-300">
               <label className="text-[#c5a059] text-[10px] uppercase tracking-widest font-serif ml-1">
                 Expertise Designation
@@ -99,12 +120,12 @@ const Invite = ({ userRole }) => {
               <select
                 value={techLevel}
                 onChange={(e) => setTechLevel(e.target.value)}
-                className="bg-[#13151a] border border-[#4A4439] text-slate-100 rounded-lg p-3 outline-none focus:border-[#C5A059] appearance-none cursor-pointer"
+                className="bg-[#13151a] border border-[#4A4439] text-slate-100 rounded-lg p-3 outline-none focus:border-[#C5A059] appearance-none cursor-pointer font-sans"
                 required
               >
-                <option value="sabi">Sabi</option>
-                <option value="osta">Osta</option>
-                <option value="none">None</option>
+                <option value="SABI">Sabi</option>
+                <option value="OSTA">Osta</option>
+                <option value="NONE">None</option>
               </select>
             </div>
           )}
@@ -124,7 +145,7 @@ const Invite = ({ userRole }) => {
               Official Invitation Link
             </p>
             <div className="flex flex-col gap-3">
-              <code className="text-slate-400 break-all text-[10px] bg-black/40 p-3 rounded border border-[#2d3139] text-center">
+              <code className="text-slate-400 break-all text-[10px] bg-black/40 p-3 rounded border border-[#2d3139] text-center font-mono">
                 {inviteLink}
               </code>
               <button

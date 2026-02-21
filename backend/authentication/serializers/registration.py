@@ -2,10 +2,12 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
 from authentication.models import UserProfile
-from shops.models import Tenant, WorkOrder, Item
+from shops.models import Tenant, WorkOrder, Item, Customer, CustomerPhone, Technician
 from shops.models.auth import ActionToken
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from allauth.account.models import EmailAddress
+from django.contrib.auth.models import User
+from ..constants import ROLE_TECH, INVITE_TYPE_STAFF
 
 User = get_user_model()
 
@@ -63,102 +65,112 @@ class OwnerRegistrationSerializer(RegisterSerializer):
            
           
           
-class TechActivationSerializer(serializers.ModelSerializer):
-    token_id = serializers.UUIDField(write_only=True)
-
+class CustomerOnboardSerializer(serializers.ModelSerializer):
+    token = serializers.UUIDField(write_only=True) 
+    full_name = serializers.CharField(write_only=True)
+    device_type = serializers.CharField(write_only=True)
+    brand = serializers.CharField(write_only=True)
+    model_name = serializers.CharField(write_only=True)
+    serial_number = serializers.CharField(write_only=True)
+    
     class Meta:
-        model = User
-        fields = ['username', 'password', 'token_id']
-        extra_kwargs = {'password': {'write_only': True}}
-
-    def validate_token_id(self, value):
-        token = ActionToken.objects.filter(id=value, is_used=False).first()
-        if not token:
-            raise serializers.ValidationError("Invalid or expired invite link.")
-        return token
-
+        model = WorkOrder
+        fields = [
+            'token', 'full_name', 'device_type', 'brand', 
+            'model_name', 'serial_number', 'description'
+        ] 
+    
     def create(self, validated_data):
-        token = validated_data.pop('token_id')
-        with transaction.atomic():
+        token_id = validated_data.pop('token')
+        full_name = validated_data.pop('full_name')
+        device_type = validated_data.pop('device_type')
+        brand = validated_data.pop('brand')
+        model_name = validated_data.pop('model_name')
+        serial_number = validated_data.pop('serial_number')
+        description = validated_data.get('description')
+
+        try:
+            invite = ActionToken.objects.get(id=token_id, token_type='CUSTOMER_INVITE')
+            tenant = invite.tenant
+        except ActionToken.DoesNotExist:
         
+            raise serializers.ValidationError({
+            "token": "This invitation link has already been used or is invalid."
+        })
+        with transaction.atomic():
+            customer, _ = Customer.objects.get_or_create(
+                tenant=tenant,
+                full_name=full_name,
+            )
+
+            if invite.phone_number:
+                CustomerPhone.objects.get_or_create(
+                    customer=customer,
+                    phone_number=invite.phone_number,
+                    tenant=tenant
+                )
+
+            item = Item.objects.create(
+                tenant=tenant,
+                customer=customer,
+                device_type=device_type,
+                brand=brand,
+                model_name=model_name,
+                serial_number=serial_number
+            )
+
+            work_order = WorkOrder.objects.create(
+                tenant=tenant,
+                item=item,
+                description=description,
+                status='pending'
+            )
+            
+            invite.delete()
+            return work_order
+        
+
+User = get_user_model()
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from rest_framework import serializers
+# Remove all custom imports for a second to prevent circular import crashes
+
+User = get_user_model()
+
+class TechActivateSerializer(serializers.Serializer):
+    token = serializers.UUIDField(write_only=True)
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+    
+    def create(self, validated_data):
+       
+        from authentication.models import UserProfile
+        from shops.models.auth import ActionToken
+        
+        token_id = validated_data.get('token')
+        
+        with transaction.atomic():
+    
+            try:
+                token_obj = ActionToken.objects.get(id=token_id)
+            except Exception:
+                raise serializers.ValidationError({"detail": "Token not found in DB."})
+
+    
             user = User.objects.create_user(
                 username=validated_data['username'],
                 password=validated_data['password'],
                 is_active=True
             )
-            
-            
+
             UserProfile.objects.create(
-                user=user, 
-                tenant=token.tenant, 
-                role=token.role, 
-                tech_level=token.tech_level
+                user=user,
+                tenant=token_obj.tenant,
+                role='TECH',
+                tech_level=getattr(token_obj, 'tech_level', 'NONE')
             )
 
-            token.is_used = True
-            token.save()
+            token_obj.delete()
             return user
-          
-          
-          
-class CustomerOnboardSerializer(serializers.ModelSerializer):
-    token_id = serializers.UUIDField(write_only=True)
-    device_name = serializers.CharField(write_only=True)
-    issue_description = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = WorkOrder
-        fields = ['token_id', 'device_name', 'issue_description']
-
-    def create(self, validated_data):
-        token_id = validated_data.pop('token_id')
-        device_name = validated_data.pop('device_name')
-        issue_description = validated_data.pop('issue_description')
-
-
-        token = ActionToken.objects.get(id=token_id, is_used=False)
-        
-        with transaction.atomic():
-            from shops.models import Customer, Item
-            
-            
-            customer = Customer.objects.filter(
-                tenant=token.tenant, 
-                phones__phone_number=token.phone_number 
-            ).first()
-
-            if not customer:
-                customer = Customer.objects.create(
-                    tenant=token.tenant,
-                    full_name="New Customer" 
-                )
-
-                customer.phones.create(
-                    tenant=token.tenant, # Inherits from TenantModel
-                    phone_number=token.phone_number
-                )
-
-            device_code = 'MOBL'
-            if any(x in device_name.lower() for x in ['pc', 'laptop', 'mac', 'desktop']):
-                device_code = 'COMP'
-            elif any(x in device_name.lower() for x in ['ps', 'xbox', 'switch', 'game']):
-                device_code = 'GAME'
-
-            # 3. CREATE THE ITEM
-            item = Item.objects.create(
-                tenant=token.tenant,
-                customer=customer,
-                device_type=device_code,
-                model_name=device_name    
-            )
-
-            work_order = WorkOrder.objects.create(
-                tenant=token.tenant,
-                item=item,
-                description=issue_description,
-                status='pending'
-            )
-            token.is_used = True
-            token.save()
-
-            return work_order

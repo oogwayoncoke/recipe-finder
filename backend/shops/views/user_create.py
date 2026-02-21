@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from ..models import WorkOrder
 from ..serializers.invites import ActionTokenSerializer
-from ..serializers.operations import CustomerOnboardingSerializer
+from authentication.serializers.registration import CustomerOnboardSerializer
 from authentication.models import UserProfile,User
 from ..models.auth import ActionToken
 from authentication.models import UserProfile
@@ -22,7 +22,7 @@ from rest_framework.exceptions import NotFound
 class WorkOrderCreateView(generics.CreateAPIView):
     queryset = WorkOrder.objects.all()
     
-    serializer_class = CustomerOnboardingSerializer
+    serializer_class = CustomerOnboardSerializer
     permission_classes = [IsAuthenticated]
     
     def perform_create(self, serializer):
