@@ -7,17 +7,15 @@ import Invite from "./pages/Invites";
 import Login from "./pages/login";
 import NotFound from "./pages/notfound";
 import Signup from "./pages/signup";
+import SubmissionSucces from "./pages/SubmissionSuccess";
+import ValidateToken from "./pages/ValidateToken";
+import WorkOrderForm from "./pages/WorkOrderForm";
 function Logout() {
   localStorage.clear();
-  return <Navigate to="/login/" />;
+  return <Navigate to="/login" />;
 }
 
-function RegisterAndLogout() {
-  localStorage.clear();
-  return <Signup />;
-}
-
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
@@ -25,26 +23,32 @@ function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <Home></Home>
+              <Home />
             </ProtectedRoute>
           }
         />
-        <Route path="/login" element={<Login></Login>} />
-        <Route path="/logout" element={<Logout></Logout>} />
-        <Route path="/register" element={<Signup></Signup>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/logout" element={<Logout />} />
+        <Route path="/register" element={<Signup />} />
         <Route path="/verify-email/:key" element={<VerifyEmail />} />
-        <Route path="/invites" element={<Invite></Invite>} />
         <Route
-          path="/activate-tech/:tokenId"
-          element={<Induction role="tech" />}
+          path="/invites"
+          element={
+            <ProtectedRoute>
+              <Invite />
+            </ProtectedRoute>
+          }
         />
         <Route
-          path="/activate-customer/:tokenId"
-          element={<Induction role="customer" />}
+          path="/Submission-Success"
+          element={<SubmissionSucces></SubmissionSucces>}
         />
-        <Route path="/*" element={<NotFound></NotFound>} />
+        <Route path="/validate/:token" element={<ValidateToken />} />
+        <Route path="/induction/:token" element={<Induction />} />
+        <Route path="/work-order-setup/:token" element={<WorkOrderForm />} />
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );
 }
-export default App;

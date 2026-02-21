@@ -74,19 +74,28 @@ class ConfirmEmailView(APIView):
     def post(self, request):
         key = request.data.get('key')
         
+        # 1. Look up the confirmation object
         confirmation = EmailConfirmationHMAC.from_key(key)
         if not confirmation:
             try:
-                confirmation = EmailConfirmation.objects.get(key=key.lower())
+                confirmation = EmailConfirmation.objects.get(key=key)
             except EmailConfirmation.DoesNotExist:
-                return Response({'error': 'Invalid key'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'error': 'Invalid key'}, status=status.HTTP_400_BAD_REQUEST)
 
-        confirmation.confirm(request)
-        user = confirmation.email_address.user
-        user.is_active = True
-        user.save()
+        # 2. THE FIX: If already verified, just say "Identity Verified" and exit.
+        # This handles the second React call gracefully.
+        if confirmation.email_address.verified:
+            return Response({'message': 'Identity Verified'}, status=status.HTTP_200_OK)
 
-        return Response({'message': 'Email confirmed!'}, status=status.HTTP_200_OK)
+        # 3. First-time confirmation logic
+        email_address = confirmation.confirm(request)
+        if email_address:
+            user = email_address.user
+            user.is_active = True
+            user.save()
+            return Response({'message': 'Identity Verified'}, status=status.HTTP_200_OK)
+            
+        return Response({'error': 'Confirmation failed'}, status=status.HTTP_400_BAD_REQUEST)
     
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer

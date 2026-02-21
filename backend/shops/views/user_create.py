@@ -9,23 +9,25 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from ..models import WorkOrder
 from ..serializers.invites import ActionTokenSerializer
-from ..serializers.operations import WorkOrderCreateSerializer
+from ..serializers.operations import CustomerOnboardingSerializer
 from authentication.models import UserProfile,User
 from ..models.auth import ActionToken
 from authentication.models import UserProfile
+from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import NotFound
+
+
+
+
 class WorkOrderCreateView(generics.CreateAPIView):
     queryset = WorkOrder.objects.all()
     
-    serializer_class = WorkOrderCreateSerializer
+    serializer_class = CustomerOnboardingSerializer
     permission_classes = [IsAuthenticated]
     
     def perform_create(self, serializer):
         serializer.save()
         
-
-from ..serializers.invites import ActionTokenSerializer
-
-
 
 
 class CreateActionLinkView(APIView):
@@ -70,41 +72,18 @@ class CreateActionLinkView(APIView):
     
 User = get_user_model()
 @method_decorator(csrf_exempt, name='dispatch')
-class ValidateOneClickView(APIView):
+class ValidateOneClickView(generics.RetrieveAPIView):
+    queryset = ActionToken.objects.all()
+    serializer_class = ActionTokenSerializer
+    permission_classes = [AllowAny]
 
-    permission_classes = [] 
-    authentication_classes = [] 
-
-    def post(self, request, token_id):
-        token = get_object_or_404(ActionToken, id=token_id)
-        if token.is_used:
-            return Response({"error": "This link has already been used."}, status=400)
+    def get_object(self):
+        # 1. Grab whatever variable the URL passed
+        # This will work whether urls.py uses <uuid:pk>, <uuid:id>, or <uuid:token_id>
+        token_uuid = self.kwargs.get('pk') or self.kwargs.get('id') or self.kwargs.get('token_id')
         
-
-        user_exists = User.objects.filter(username=token.phone_number).exists()
-        
-        user, created = User.objects.get_or_create(username=token.phone_number)
-
-  
-        UserProfile.objects.update_or_create(
-            user=user,
-            defaults={
-                'tenant': token.tenant,
-                'role': 'TECH' if token.token_type == 'EMP_INVITE' else 'CUSTOMER',
-                'tech_level': token.tech_level
-            }
-        )
-
-        refresh = RefreshToken.for_user(user)
-        refresh['tenant_id'] = str(token.tenant.tenant_id)
-        refresh['role'] = 'TECH' if token.token_type == 'EMP_INVITE' else 'CUSTOMER'
-        
-        token.is_used = True
-        token.save()
-
-        return Response({
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "is_new_user": not user_exists or not user.has_usable_password(), # <--- Key flag
-            "redirect_to": "/setup-profile" if (not user_exists or not user.has_usable_password()) else "/dashboard"
-        }, status=200)
+        # 2. explicitly query the database using the 'id' column
+        try:
+            return ActionToken.objects.get(id=token_uuid)
+        except ActionToken.DoesNotExist:
+            raise NotFound(detail="This token does not exist or has expired.")

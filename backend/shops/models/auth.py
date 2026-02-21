@@ -29,7 +29,7 @@ class ActionToken(models.Model):
     tenant = models.ForeignKey('Tenant', on_delete=models.CASCADE)
     token_type = models.CharField(choices=TOKEN_TYPES, max_length=20)
     role = models.CharField(choices=ROLE_CHOICES, max_length=20, default='TECHNICIAN')
-    tech_level = models.CharField(choices=TECH_LEVEL_CHOICES, max_length=10, default='NONE')
+    tech_level = models.CharField(choices=TECH_LEVEL_CHOICES, max_length=10, default='NONE',null=True,blank=True)
     related_ticket = models.ForeignKey('WorkOrder', null=True, blank=True,
                                        on_delete=models.SET_NULL)
     is_used = models.BooleanField(default=False)

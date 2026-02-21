@@ -10,5 +10,5 @@ urlpatterns = [
  path('activate-tech/', TechActivateView.as_view(), name='activate-tech'),
  path('onboard-customer/', CustomerOnboardView.as_view(), name='onboard-customer'),
   path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
-  path('token/refresh/', TokenRefreshView.as_view, name='token_refresh')
+  path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh')
   ]

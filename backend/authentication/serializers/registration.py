@@ -10,12 +10,24 @@ from allauth.account.models import EmailAddress
 User = get_user_model()
 
 class OwnerRegistrationSerializer(RegisterSerializer):
-    # 1. Define the missing fields so the serializer knows what to look for
+    
     username = serializers.CharField(required=True, max_length=150)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
     shop_name = serializers.CharField(write_only=True, required=True)
-
+    def validate(self, data):
+        if Tenant.objects.filter(shop_name=data.get('shop_name')).exists():
+            raise serializers.ValidationError({
+                "shop_name": "A shop with this name already exists."
+            })
+        if Tenant.objects.filter(owner_email=data.get('email')).exists():
+            raise serializers.ValidationError({
+            "email": "This email is already linked to an existing shop."
+            })
+            
+        return data
+    
+    
     def get_cleaned_data(self):
         cleaned_data = super().get_cleaned_data()
         cleaned_data['username'] = self.validated_data.get('username')
@@ -24,23 +36,23 @@ class OwnerRegistrationSerializer(RegisterSerializer):
         return cleaned_data
 
     def save(self, request=None):
-        # 2. Fix for the 'session' AttributeError: Get request from context
+        
         if request is None:
             request = self.context.get('request')
         
-        # Capture raw data for Tenant creation before User is saved
+        
         email = self.validated_data.get('email')
         shop = self.validated_data.get('shop_name')
 
         with transaction.atomic():
-            # 3. Pass request to super().save() for allauth session logic
+            
             user = super().save(request)
             
-            # 4. Forge the Tenant and Profile
+           
             tenant = Tenant.objects.create(shop_name=shop, owner_email=email)
             UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
             
-            # Send the confirmation email
+           
             try:
                 email_address = EmailAddress.objects.get(user=user, email=user.email)
                 email_address.send_confirmation(request, signup=True)
