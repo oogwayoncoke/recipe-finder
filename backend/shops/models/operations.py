@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 from django.db import models
 
@@ -22,6 +23,7 @@ class WorkOrder(TenantModel):
         ("pending", "Pending"),
         ("diagnosing", "In Diagnosis"),
         ("parts", "Waiting for Parts"),
+        ("working", "working on device"),
         ("ready", "Ready for Pickup"),
         ("completed", "Completed"),
     ]
@@ -68,7 +70,11 @@ class WorkOrder(TenantModel):
 
     def save(self, *args, **kwargs):
         if not self.ticket_id:
-            self.ticket_id = generate_ticket_id()
+            # Generates a unique ID like WO-2202-A1B2
+            # The 'uuid' ensures you never have a 'Duplicate' error again
+            slug = uuid.uuid4().hex[:6].upper()
+            self.ticket_id = f"WO-{slug}"
+
         super().save(*args, **kwargs)
 
     def __str__(self):

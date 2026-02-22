@@ -3,6 +3,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import VerifyEmail from "./components/VerifyEmail";
 import Home from "./pages/Home";
 import Induction from "./pages/Induction";
+import InventoryTerminal from "./pages/Inventory";
 import Invite from "./pages/Invites";
 import Login from "./pages/login";
 import NotFound from "./pages/notfound";
@@ -35,10 +36,18 @@ export default function App() {
           }
         />
         <Route
-          path="/work-orders-view"
+          path="/work-orders"
           element={
             <ProtectedRoute>
               <WorkOrderAssignment />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inventory"
+          element={
+            <ProtectedRoute>
+              <InventoryTerminal />
             </ProtectedRoute>
           }
         />

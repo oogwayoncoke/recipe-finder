@@ -1,22 +1,19 @@
-from django.shortcuts import get_object_or_404
+from authentication.models import User, UserProfile
+from authentication.serializers.registration import CustomerOnboardSerializer
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.views import APIView
 from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
-from ..models import WorkOrder
-from ..serializers.invites import ActionTokenSerializer
-from authentication.serializers.registration import CustomerOnboardSerializer
-from authentication.models import UserProfile,User
-from ..models.auth import ActionToken
-from authentication.models import UserProfile
-from rest_framework.permissions import AllowAny
 from rest_framework.exceptions import NotFound
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
-
+from ..models import WorkOrder
+from ..models.auth import ActionToken
+from ..serializers.invites import ActionTokenSerializer
 
 
 class WorkOrderCreateView(generics.CreateAPIView):
@@ -27,7 +24,6 @@ class WorkOrderCreateView(generics.CreateAPIView):
     
     def perform_create(self, serializer):
         serializer.save()
-        
 
 
 class CreateActionLinkView(APIView):
@@ -69,7 +65,7 @@ class CreateActionLinkView(APIView):
         
         serializer = ActionTokenSerializer(token)
         return Response(serializer.data, status=201)
-    
+
 User = get_user_model()
 @method_decorator(csrf_exempt, name='dispatch')
 class ValidateOneClickView(generics.RetrieveAPIView):
