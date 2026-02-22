@@ -1,8 +1,10 @@
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from shops.serializers.operations import (
     InventorySerializer,
     PartUsageSerializer,
@@ -34,6 +36,22 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
 
         return WorkOrder.objects.filter(tenant=user_profile.tenant)
 
+    @action(detail=True, methods=["patch"], url_path="assign-techs")
+    def assign_techs(self, request, pk=None):
+        work_order = self.get_object()
+        data = request.data
+
+        if "assigned_osta_tech" in data:
+            work_order.assigned_osta_tech_id = data["assigned_osta_tech"]
+
+        if "assigned_sabi_tech" in data:
+            work_order.assigned_sabi_tech_id = data["assigned_sabi_tech"]
+
+        work_order.save()
+        return Response(
+            {"status": "Technicians updated successfully"}, status=status.HTTP_200_OK
+        )
+
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -62,24 +80,13 @@ class PartUsageViewSet(viewsets.ModelViewSet):
     serializer_class = PartUsageSerializer
 
     def perform_create(self, serializer):
-        # Manually assign tenant from the user profile
         serializer.save(tenant=self.request.user.profile.tenant)
-
-
-from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-
-from ..models.operations import WorkOrder
-from ..serializers.operations import WorkOrderSerializer
 
 
 class PublicTicketTrackerView(APIView):
     permission_classes = []
 
     def get(self, request, ticket_id):
-
         order = get_object_or_404(WorkOrder, ticket_id=ticket_id)
 
         data = {
@@ -90,4 +97,4 @@ class PublicTicketTrackerView(APIView):
             "model": order.model,
             "created_at": order.created_at,
         }
-        return Response(data, status=status.status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)

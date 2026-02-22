@@ -20,8 +20,8 @@ load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -34,15 +34,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-REST_FRAMEWORK={
-    "DEFAULT_AUTHENTICATION_CLASSES":(
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        'rest_framework.authentication.SessionAuthentication',
-    ), 
-    "DEFAULT_PERMISSION_CLASSES":[
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    
 }
 
 SIMPLE_JWT={
@@ -72,19 +71,19 @@ INSTALLED_APPS = [
     "shops",
     "phonenumber_field",
 ]
-SITE_ID=1
+SITE_ID = 1
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    'authentication.middleware.TenantMiddleware',
+    "authentication.middleware.TenantMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'django.middleware.common.CommonMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    "django.middleware.common.CommonMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -119,19 +118,19 @@ WSGI_APPLICATION = "core.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-DB=os.getenv('DB')
-USER=os.getenv('USER')
-PASSWORD=os.getenv('PASSWORD')
-HOST=os.getenv('HOST')
-PORT=os.getenv('PORT')
+DB = os.getenv("DB")
+USER = os.getenv("USER")
+PASSWORD = os.getenv("PASSWORD")
+HOST = os.getenv("HOST")
+PORT = os.getenv("PORT")
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        'NAME': DB,     
-        'USER': USER,        
-        'PASSWORD': PASSWORD,
-        'HOST': HOST,         
-        'PORT': PORT,
+        "NAME": DB,
+        "USER": USER,
+        "PASSWORD": PASSWORD,
+        "HOST": HOST,
+        "PORT": PORT,
     }
 }
 
