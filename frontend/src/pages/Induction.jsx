@@ -42,38 +42,24 @@ const Induction = () => {
       return;
     }
 
-    const payload = {
-      token: token.trim(), // Killing any invisible spaces from the URL
-      username: formData.username,
-      password: formData.password,
-    };
-
-    // This will appear in your F12 Console.
-    // Verify these match your Postman body EXACTLY.
-    console.table(payload);
-
     try {
-      // FORCE the trailing slash. Django is often silent if this is missing.
-      const response = await api.post(
-        "/authentication/activate-tech/",
-        payload,
-      );
+      await api.post(`/authentication/activate-tech/`, {
+        token: token,
+        username: formData.username,
+        password: formData.password,
+      });
 
-      console.log("SUCCESS_LEDGER_SIGNED:", response.data);
       navigate("/login", {
         state: { message: "Account created! You can now log in." },
       });
     } catch (err) {
-      // Log the full object to see if it's a 403 (CORS/CSRF) or 400 (Validation)
-      console.error("SHEPHERD_REJECTED_HANDSHAKE:", err);
-      console.log("SERVER_RESPONSE_DATA:", err.response?.data);
-
       const serverError = err.response?.data;
       setError(
         serverError?.token?.[0] ||
           serverError?.non_field_errors?.[0] ||
+          serverError?.username?.[0] ||
           serverError?.detail ||
-          "Registration failed. Check the F12 Console now.",
+          "Registration failed. Please try again.",
       );
     }
   };

@@ -1,6 +1,8 @@
 from django.db import models
-from .base import TenantModel
 from phonenumber_field.modelfields import PhoneNumberField
+
+from .base import TenantModel
+
 
 class Customer(TenantModel):
   full_name = models.CharField(max_length=255, null=False)
@@ -14,8 +16,8 @@ class Customer(TenantModel):
 class CustomerPhone(TenantModel):
   customer = models.ForeignKey(Customer, related_name='phones', on_delete=models.CASCADE)
   phone_number = PhoneNumberField(region='EG',null=False)
-  
-  
+
+
 class Technician(TenantModel):
     full_name = models.CharField(max_length=255, null=False)
     role = models.CharField(max_length=50, null=False)
@@ -36,4 +38,3 @@ class Technician(TenantModel):
 class TechnicianPhone(TenantModel):
   technician = models.ForeignKey(Technician, related_name='phones', on_delete=models.CASCADE)
   phone_number = PhoneNumberField(region='EG',null=False)
-  

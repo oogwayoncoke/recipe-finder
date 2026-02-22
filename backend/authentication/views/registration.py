@@ -1,12 +1,12 @@
 from django.contrib.auth.models import User
-from rest_framework import status,generics
+from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
-from ..serializers.registration import (
-    OwnerRegistrationSerializer, 
-    TechActivateSerializer, 
-    CustomerOnboardSerializer
-)
 
+from ..serializers.registration import (
+    CustomerOnboardSerializer,
+    OwnerRegistrationSerializer,
+    TechActivateSerializer,
+)
 
 
 class OwnerRegisterView(generics.CreateAPIView):

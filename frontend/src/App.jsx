@@ -9,7 +9,9 @@ import NotFound from "./pages/notfound";
 import Signup from "./pages/signup";
 import SubmissionSucces from "./pages/SubmissionSuccess";
 import ValidateToken from "./pages/ValidateToken";
+import WorkOrderAssignment from "./pages/WorkOrderAssignment";
 import WorkOrderForm from "./pages/WorkOrderForm";
+
 function Logout() {
   localStorage.clear();
   return <Navigate to="/login" />;
@@ -29,6 +31,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Invite />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/work-orders-view"
+          element={
+            <ProtectedRoute>
+              <WorkOrderAssignment />
             </ProtectedRoute>
           }
         />

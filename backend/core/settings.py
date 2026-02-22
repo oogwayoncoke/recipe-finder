@@ -10,10 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-from pathlib import Path
-from datetime import timedelta
-from dotenv import load_dotenv
 import os
+from datetime import timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -63,15 +64,13 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "allauth",
     "allauth.account",
-    'allauth.socialaccount',
+    "allauth.socialaccount",
     "dj_rest_auth.registration",
-    'rest_framework',
-    'corsheaders',
-    'authentication',
-    'shops',
+    "rest_framework",
+    "corsheaders",
+    "authentication",
+    "shops",
     "phonenumber_field",
-    
-    
 ]
 SITE_ID=1
 MIDDLEWARE = [
@@ -181,21 +180,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 COES_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_CREDENTIALS = True
 
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = True
-ACCOUNT_UNIQUE_EMAIL = True
 
-ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_LOGIN_METHODS = {"email", "username"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_ADAPTER = "authentication.adapter.AccountAdapter"
 
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
-
-
-
-
-

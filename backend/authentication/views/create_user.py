@@ -1,20 +1,17 @@
+from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 from django.contrib.auth.models import User
 from django.db import transaction
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status,generics
-from rest_framework.permissions import AllowAny
+from rest_framework import generics, status
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
-from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 from shops.models import Tenant
 from shops.models.auth import ActionToken
 
-
 from ..models import UserProfile
-from shops.models import Tenant
-from ..serializers.generics import UserSerializer
-from ..serializers.generics import UserSerializer, MyTokenObtainPairSerializer
+from ..serializers.generics import MyTokenObtainPairSerializer, UserSerializer
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -39,8 +36,8 @@ class CreateUserView(generics.CreateAPIView):
             else:
                 user.is_active = False
                 user.save()
-                
-                
+
+
 class ConfirmEmailView(APIView):
     permission_classes = [AllowAny]
 
@@ -66,6 +63,6 @@ class ConfirmEmailView(APIView):
             return Response({'message': 'Identity Verified'}, status=status.HTTP_200_OK)
             
         return Response({'error': 'Confirmation failed'}, status=status.HTTP_400_BAD_REQUEST)
-    
+
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer

@@ -1,5 +1,7 @@
 from django.db import models
+
 from .base import TenantModel
+
 
 class Invoice(TenantModel):
   tenant = models.ForeignKey('shops.Tenant', on_delete=models.CASCADE,null=False)
@@ -21,7 +23,6 @@ class Invoice(TenantModel):
 
   def __str__(self):
     return f"Invoice for Order {self.work_order.id}"
-
 
 
 class Payment(models.Model):

@@ -1,10 +1,8 @@
 from rest_framework import serializers
+
 from ..models.auth import ActionToken
 
-    
-    
 
-    
 class ActionTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActionToken

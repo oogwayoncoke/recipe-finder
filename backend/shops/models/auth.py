@@ -1,8 +1,10 @@
-from django.db import models
-from datetime import timedelta
 import datetime
-from django.utils import timezone
 import uuid
+from datetime import timedelta
+
+from django.db import models
+from django.utils import timezone
+
 
 def get_default_expiry():
     return timezone.now() + datetime.timedelta(days=7)

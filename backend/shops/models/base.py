@@ -1,8 +1,9 @@
+import uuid
+from datetime import timedelta
+
+from authentication.tenant_context import get_current_tenant_id
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
-from authentication.tenant_context import get_current_tenant_id
-import uuid 
 
 
 class Tenant(models.Model):

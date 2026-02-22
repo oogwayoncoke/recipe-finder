@@ -23,16 +23,24 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthRequest =
+      originalRequest.url.includes("token") ||
+      originalRequest.url.includes("register");
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthRequest
+    ) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = localStorage.getItem(REFRESH_TOKEN);
+        if (!refreshToken) throw new Error("No refresh token");
+
         const res = await axios.post(
           `${import.meta.env.VITE_API_URL}authentication/token/refresh/`,
-          {
-            refresh: refreshToken,
-          },
+          { refresh: refreshToken },
         );
 
         if (res.status === 200) {
@@ -43,12 +51,15 @@ api.interceptors.response.use(
         }
       } catch (refreshError) {
         localStorage.clear();
-        window.location.href = "/login";
+        // Only redirect if we aren't already on the login page
+        if (window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
         return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);
-  },
+  }
 );
 
 export default api;

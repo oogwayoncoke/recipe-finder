@@ -1,13 +1,14 @@
+from allauth.account.models import EmailAddress
+from authentication.models import UserProfile
+from dj_rest_auth.registration.serializers import RegisterSerializer
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.db import transaction
 from rest_framework import serializers
-from authentication.models import UserProfile
-from shops.models import Tenant, WorkOrder, Item, Customer, CustomerPhone, Technician
+from shops.models import Customer, CustomerPhone, Item, Technician, Tenant, WorkOrder
 from shops.models.auth import ActionToken
-from dj_rest_auth.registration.serializers import RegisterSerializer
-from allauth.account.models import EmailAddress
-from django.contrib.auth.models import User
-from ..constants import ROLE_TECH, INVITE_TYPE_STAFF
+
+from ..constants import INVITE_TYPE_STAFF, ROLE_TECH
 
 User = get_user_model()
 
@@ -62,9 +63,8 @@ class OwnerRegistrationSerializer(RegisterSerializer):
                 print(f"Email sending failed: {e}")
                 
             return user
-           
-          
-          
+
+
 class CustomerOnboardSerializer(serializers.ModelSerializer):
     token = serializers.UUIDField(write_only=True) 
     full_name = serializers.CharField(write_only=True)
@@ -128,13 +128,14 @@ class CustomerOnboardSerializer(serializers.ModelSerializer):
             
             invite.delete()
             return work_order
-        
+
 
 User = get_user_model()
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from rest_framework import serializers
+
 # Remove all custom imports for a second to prevent circular import crashes
 
 User = get_user_model()

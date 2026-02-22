@@ -27,7 +27,7 @@ const NotFound = () => {
         </p>
 
         <Link
-          to="/"
+          to="/dashboard"
           className="inline-block w-full py-3 bg-linear-to-b from-[#D4AF37] to-[#C5A059] text-[#0F1115] rounded-lg font-bold uppercase tracking-[0.2em] text-[10px] shadow-[0_4px_0_rgb(74,68,57)] hover:translate-y-0.5 active:translate-y-1 transition-all"
         >
           Return to Workshop

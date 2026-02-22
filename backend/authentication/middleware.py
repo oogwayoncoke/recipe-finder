@@ -1,4 +1,5 @@
 from django.utils.deprecation import MiddlewareMixin
+
 from .models import UserProfile
 from .tenant_context import set_current_tenant_id
 

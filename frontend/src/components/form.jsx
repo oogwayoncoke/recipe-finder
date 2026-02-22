@@ -52,19 +52,29 @@ function Form({ route, method }) {
         setSuccess("Success. The invitation has been sent to your email.");
         setTimeout(() => navigate("/login"), 3000);
       }
-    } catch (error) {
+  } catch (error) {
       const data = error.response?.data;
       let errorMsg = "The ledger rejected this entry.";
 
       if (data) {
         if (typeof data === "string") {
           errorMsg = data;
-        } else {
-          const firstKey = Object.keys(data)[0];
-          const firstVal = data[firstKey];
-          errorMsg = Array.isArray(firstVal) ? firstVal[0] : firstVal;
-          if (firstKey !== "detail" && firstKey !== "non_field_errors") {
-            errorMsg = `${firstKey}: ${errorMsg}`;
+        } else if (typeof data === "object") {
+          if (data.detail) {
+            errorMsg = data.detail;
+          } else if (data.non_field_errors) {
+            errorMsg = data.non_field_errors[0];
+          } else {
+            const fields = Object.keys(data);
+            const firstField = fields[0];
+            const msg = Array.isArray(data[firstField])
+              ? data[firstField][0]
+              : data[firstField];
+
+            const cleanField = firstField
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (l) => l.toUpperCase());
+            errorMsg = `${cleanField}: ${msg}`;
           }
         }
       } else {
