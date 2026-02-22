@@ -9,6 +9,7 @@ import Login from "./pages/login";
 import NotFound from "./pages/notfound";
 import Signup from "./pages/signup";
 import SubmissionSucces from "./pages/SubmissionSuccess";
+import TrackOrder from "./pages/TrackOrder";
 import ValidateToken from "./pages/ValidateToken";
 import WorkOrderAssignment from "./pages/WorkOrderAssignment";
 import WorkOrderForm from "./pages/WorkOrderForm";
@@ -56,6 +57,7 @@ export default function App() {
           element={<SubmissionSucces></SubmissionSucces>}
         />
         <Route path="/validate/:token" element={<ValidateToken />} />
+        <Route path="/track/:ticketId" element={<TrackOrder />} />
         <Route path="/induction/:token" element={<Induction />} />
         <Route path="/work-order-setup/:token" element={<WorkOrderForm />} />
 

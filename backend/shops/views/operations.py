@@ -1,6 +1,7 @@
-from django.db import models
+from django.db.models import Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from shops.serializers.operations import (
     InventorySerializer,
@@ -15,40 +16,23 @@ from ..models import Inventory, PartUsage, WorkOrder
 class WorkOrderViewSet(viewsets.ModelViewSet):
     queryset = WorkOrder.objects.all()
     serializer_class = WorkOrderSerializer
-
-    @action(detail=True, methods=["patch"], url_path="assign-techs")
-    def assign_techs(self, request, pk=None):
-        work_order = self.get_object()
-        serializer = WorkOrderAssignmentSerializer(
-            work_order, data=request.data, context={"request": request}, partial=True
-        )
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
+        search_query = self.request.query_params.get("search", None)
+
+        if search_query:
+            return WorkOrder.objects.filter(
+                Q(ticket_id__iexact=search_query)
+                | Q(item__serial_number__iexact=search_query)
+            ).select_related("item", "assigned_osta_tech", "assigned_sabi_tech")
+
         user = self.request.user
         user_profile = getattr(user, "profile", None)
-
-        if not user_profile or not user_profile.tenant:
+        if not user_profile:
             return WorkOrder.objects.none()
 
-        base_queryset = WorkOrder.objects.filter(
-            tenant=user_profile.tenant
-        ).select_related("item", "assigned_osta_tech", "assigned_sabi_tech")
-
-        if user_profile.role == "TECH" and user_profile.tech_level == "OSTA":
-            return base_queryset.filter(
-                models.Q(assigned_osta_tech=user_profile)
-                | models.Q(assigned_osta_tech__isnull=True)
-            )
-        elif user_profile.role == "TECH" and user_profile.tech_level == "SABI":
-            return base_queryset.filter(assigned_sabi_tech=user_profile)
-
-        return base_queryset
+        return WorkOrder.objects.filter(tenant=user_profile.tenant)
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):

@@ -17,7 +17,7 @@ from .views.user_create import (
 router = DefaultRouter()
 
 router.register(r"inventory", InventoryViewSet, basename="inventory")
-router.register(r"work-order", WorkOrderViewSet, basename="work-order")
+router.register(r"work-orders", WorkOrderViewSet, basename="work-order")
 router.register(r"part-usage", PartUsageViewSet, basename="part-usage")
 
 urlpatterns = [
