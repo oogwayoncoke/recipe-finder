@@ -1,5 +1,5 @@
 import { jwtDecode } from "jwt-decode";
-import { AlertCircle, Edit3, Search, X } from "lucide-react";
+import { AlertCircle, BellRing, Edit3, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "../api";
 
@@ -18,6 +18,7 @@ const InventoryTerminal = () => {
     cost_price: 0,
     retail_price: 0,
     stock_count: 0,
+    low_stock_threshold: 5,
     specifications: { brand: "", model: "" },
   });
 
@@ -51,10 +52,11 @@ const InventoryTerminal = () => {
       ...newItem,
       retail_price: parseFloat(newItem.retail_price) || 0,
       stock_count: parseInt(newItem.stock_count) || 0,
+      low_stock_threshold: parseInt(newItem.low_stock_threshold) || 5,
     };
     try {
       await api.post("/shops/inventory/", payload);
-      showNotification("Asset Registered in Vault", "success");
+      showNotification("Asset Registered", "success");
       setShowModal(false);
       fetchInventory();
       setNewItem({
@@ -64,18 +66,12 @@ const InventoryTerminal = () => {
         cost_price: 0,
         retail_price: 0,
         stock_count: 0,
+        low_stock_threshold: 5,
         specifications: { brand: "", model: "" },
       });
     } catch (err) {
-      showNotification("Vault Entry Denied", "error");
+      showNotification("Entry Denied", "error");
     }
-  };
-
-  const handleEditClick = (item) => {
-    setEditingItem({
-      ...item,
-      specifications: item.specifications || { brand: "", model: "" },
-    });
   };
 
   const handleUpdate = async (e) => {
@@ -84,6 +80,7 @@ const InventoryTerminal = () => {
       ...editingItem,
       retail_price: parseFloat(editingItem.retail_price),
       stock_count: parseInt(editingItem.stock_count),
+      low_stock_threshold: parseInt(editingItem.low_stock_threshold),
     };
     try {
       await api.put(`/shops/inventory/${editingItem.id}/`, payload);
@@ -148,7 +145,7 @@ const InventoryTerminal = () => {
           {isOwner && (
             <button
               onClick={() => setShowModal(true)}
-              className="bg-[#c5a059] text-[#0f1115] px-6 py-2 rounded-xl text-[10px] uppercase font-black tracking-widest hover:bg-[#d4b475] transition-all"
+              className="bg-[#c5a059] text-[#0f1115] px-6 py-2 rounded-xl text-[10px] uppercase font-black tracking-widest hover:bg-[#d4b475] transition-all cursor-pointer"
             >
               Add Stock
             </button>
@@ -157,76 +154,86 @@ const InventoryTerminal = () => {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {filteredItems.map((item) => (
-          <div
-            key={item.id}
-            className="bg-[#1a1d23] border border-[#2d3139] rounded-2xl p-6 hover:border-[#c5a059]/40 transition-all group relative overflow-hidden"
-          >
-            <div className="flex justify-between items-start mb-6">
-              <div
-                className={`px-2 py-0.5 rounded text-[8px] uppercase font-bold border ${item.product_type === "PART" ? "border-[#c5a059] text-[#c5a059]" : "border-slate-500 text-slate-500"}`}
-              >
-                {item.product_type}
-              </div>
-              {isOwner && (
-                <button
-                  onClick={() => handleEditClick(item)}
-                  className="text-slate-600 hover:text-[#c5a059] transition-colors"
+        {filteredItems.map((item) => {
+          const isLowStock =
+            item.stock_count <= (item.low_stock_threshold || 5);
+          return (
+            <div
+              key={item.id}
+              className={`bg-[#1a1d23] border rounded-2xl p-6 transition-all group relative overflow-hidden ${isLowStock ? "border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.1)]" : "border-[#2d3139] hover:border-[#c5a059]/40"}`}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div
+                  className={`px-2 py-0.5 rounded text-[8px] uppercase font-bold border ${item.product_type === "PART" ? "border-[#c5a059] text-[#c5a059]" : "border-slate-500 text-slate-500"}`}
                 >
-                  <Edit3 size={14} />
-                </button>
+                  {item.product_type}
+                </div>
+                {isOwner && (
+                  <button
+                    onClick={() =>
+                      setEditingItem({
+                        ...item,
+                        specifications: item.specifications || {
+                          brand: "",
+                          model: "",
+                        },
+                        low_stock_threshold: item.low_stock_threshold || 5,
+                      })
+                    }
+                    className="text-slate-600 hover:text-[#c5a059] transition-colors cursor-pointer"
+                  >
+                    <Edit3 size={14} />
+                  </button>
+                )}
+              </div>
+              <h3 className="text-slate-100 font-bold text-lg mb-1 leading-tight">
+                {item.name}
+              </h3>
+              <p className="text-slate-500 text-[10px] uppercase tracking-tighter mb-8 italic">
+                {item.specifications?.brand || "Generic"}{" "}
+                {item.specifications?.model || "Standard"}
+              </p>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-[8px] text-slate-600 uppercase mb-1 tracking-[0.2em]">
+                    Available
+                  </p>
+                  <p
+                    className={`text-2xl font-bold ${isLowStock ? "text-red-500" : "text-slate-100"}`}
+                  >
+                    {item.stock_count}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[8px] text-slate-600 uppercase mb-1 tracking-[0.2em]">
+                    Unit Price
+                  </p>
+                  <p className="text-[#c5a059] text-lg font-bold">
+                    {item.retail_price}{" "}
+                    <span className="text-[10px] font-normal">EGP</span>
+                  </p>
+                </div>
+              </div>
+              {isLowStock && (
+                <div className="absolute top-0 right-0 p-2 text-red-500 animate-pulse">
+                  <AlertCircle size={14} />
+                </div>
               )}
             </div>
-
-            <h3 className="text-slate-100 font-bold text-lg mb-1 leading-tight">
-              {item.name}
-            </h3>
-            <p className="text-slate-500 text-[10px] uppercase tracking-tighter mb-8 italic">
-              {item.specifications?.brand || "Generic"} //{" "}
-              {item.specifications?.model || "Standard"}
-            </p>
-
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[8px] text-slate-600 uppercase mb-1 tracking-[0.2em]">
-                  Available
-                </p>
-                <p
-                  className={`text-2xl font-bold ${item.stock_count < 5 ? "text-red-500" : "text-slate-100"}`}
-                >
-                  {item.stock_count}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[8px] text-slate-600 uppercase mb-1 tracking-[0.2em]">
-                  Unit Price
-                </p>
-                <p className="text-[#c5a059] text-lg font-bold">
-                  {item.retail_price}{" "}
-                  <span className="text-[10px] font-normal">EGP</span>
-                </p>
-              </div>
-            </div>
-
-            {item.stock_count < 5 && (
-              <div className="absolute top-0 right-0 p-2 text-red-500/20 group-hover:text-red-500 transition-colors">
-                <AlertCircle size={14} />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-[#0f1115]/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <form
             onSubmit={handleCreate}
-            className="bg-[#1a1d23] border border-[#c5a059]/30 w-full max-w-lg rounded-3xl p-8 shadow-2xl overflow-hidden"
+            className="bg-[#1a1d23] border border-[#c5a059]/30 w-full max-w-lg rounded-3xl p-8 shadow-2xl"
           >
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h2 className="text-[#c5a059] text-xl tracking-widest uppercase font-bold">
-                  New Asset Registration
+                  New Asset
                 </h2>
                 <p className="text-slate-500 text-[10px] uppercase italic">
                   Secure Vault Entry
@@ -240,7 +247,6 @@ const InventoryTerminal = () => {
                 <X size={20} />
               </button>
             </div>
-
             <div className="grid grid-cols-2 gap-4 mb-8">
               <input
                 placeholder="Item Name"
@@ -278,7 +284,7 @@ const InventoryTerminal = () => {
               />
               <input
                 type="number"
-                placeholder="Retail Price"
+                placeholder="Price"
                 required
                 className="bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs outline-none focus:border-[#c5a059]"
                 onChange={(e) =>
@@ -287,13 +293,27 @@ const InventoryTerminal = () => {
               />
               <input
                 type="number"
-                placeholder="Initial Stock"
+                placeholder="Stock"
                 required
                 className="bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs outline-none focus:border-[#c5a059]"
                 onChange={(e) =>
                   setNewItem({ ...newItem, stock_count: e.target.value })
                 }
               />
+              <div className="col-span-2 flex items-center gap-3 bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl">
+                <BellRing size={14} className="text-[#c5a059]" />
+                <input
+                  type="number"
+                  placeholder="Alert Threshold"
+                  className="bg-transparent w-full text-xs outline-none text-white"
+                  onChange={(e) =>
+                    setNewItem({
+                      ...newItem,
+                      low_stock_threshold: e.target.value,
+                    })
+                  }
+                />
+              </div>
               <select
                 className="col-span-2 bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs outline-none focus:border-[#c5a059] text-slate-400"
                 onChange={(e) =>
@@ -304,18 +324,17 @@ const InventoryTerminal = () => {
                 <option value="RETAIL">RETAIL PRODUCT</option>
               </select>
             </div>
-
             <div className="flex gap-4">
               <button
                 type="submit"
-                className="flex-1 bg-[#c5a059] text-[#0f1115] py-4 rounded-xl text-[10px] uppercase font-black tracking-widest hover:bg-[#d4b475] transition-all active:scale-95"
+                className="flex-1 bg-[#c5a059] text-[#0f1115] py-4 rounded-xl text-[10px] uppercase font-black tracking-widest hover:bg-[#d4b475]"
               >
-                Confirm Entry
+                Confirm
               </button>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-6 py-4 rounded-xl text-[10px] uppercase font-bold border border-slate-700 text-slate-500 hover:bg-slate-800 transition-all"
+                className="px-6 py-4 rounded-xl text-[10px] uppercase font-bold border border-slate-700 text-slate-500"
               >
                 Abort
               </button>
@@ -347,53 +366,23 @@ const InventoryTerminal = () => {
                 <X size={20} />
               </button>
             </div>
-
             <div className="grid grid-cols-2 gap-4 mb-8">
               <input
                 value={editingItem.name}
-                placeholder="Item Name"
                 required
-                className="col-span-2 bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none focus:border-[#c5a059]"
+                className="col-span-2 bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none"
                 onChange={(e) =>
                   setEditingItem({ ...editingItem, name: e.target.value })
                 }
               />
-              <input
-                value={editingItem.specifications.brand}
-                placeholder="Brand"
-                className="bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none focus:border-[#c5a059]"
-                onChange={(e) =>
-                  setEditingItem({
-                    ...editingItem,
-                    specifications: {
-                      ...editingItem.specifications,
-                      brand: e.target.value,
-                    },
-                  })
-                }
-              />
-              <input
-                value={editingItem.specifications.model}
-                placeholder="Model"
-                className="bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none focus:border-[#c5a059]"
-                onChange={(e) =>
-                  setEditingItem({
-                    ...editingItem,
-                    specifications: {
-                      ...editingItem.specifications,
-                      model: e.target.value,
-                    },
-                  })
-                }
-              />
               <div className="space-y-1">
                 <label className="text-[8px] text-slate-500 uppercase ml-2 tracking-widest">
-                  Retail Price
+                  Price
                 </label>
                 <input
                   type="number"
                   value={editingItem.retail_price}
-                  className="w-full bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none focus:border-[#c5a059]"
+                  className="w-full bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none"
                   onChange={(e) =>
                     setEditingItem({
                       ...editingItem,
@@ -404,12 +393,12 @@ const InventoryTerminal = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-[8px] text-slate-500 uppercase ml-2 tracking-widest">
-                  Stock Level
+                  Stock
                 </label>
                 <input
                   type="number"
                   value={editingItem.stock_count}
-                  className="w-full bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none focus:border-[#c5a059]"
+                  className="w-full bg-[#0f1115] border border-[#2d3139] p-3 rounded-xl text-xs text-white outline-none"
                   onChange={(e) =>
                     setEditingItem({
                       ...editingItem,
@@ -418,14 +407,32 @@ const InventoryTerminal = () => {
                   }
                 />
               </div>
+              <div className="col-span-2 space-y-1">
+                <label className="text-[8px] text-red-500 uppercase ml-2 tracking-widest font-bold">
+                  Alert Threshold
+                </label>
+                <div className="flex items-center gap-3 bg-[#0f1115] border border-red-500/20 p-3 rounded-xl">
+                  <BellRing size={14} className="text-red-500" />
+                  <input
+                    type="number"
+                    value={editingItem.low_stock_threshold}
+                    className="bg-transparent w-full text-xs outline-none text-white"
+                    onChange={(e) =>
+                      setEditingItem({
+                        ...editingItem,
+                        low_stock_threshold: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
             </div>
-
             <div className="flex gap-4">
               <button
                 type="submit"
-                className="flex-1 bg-[#c5a059] text-[#0f1115] py-4 rounded-xl text-[10px] uppercase font-black tracking-widest hover:bg-[#d4b475] transition-all"
+                className="flex-1 bg-[#c5a059] text-[#0f1115] py-4 rounded-xl text-[10px] uppercase font-black tracking-widest hover:bg-[#d4b475]"
               >
-                Save Changes
+                Save
               </button>
               <button
                 type="button"

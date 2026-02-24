@@ -18,18 +18,16 @@ class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
-    
+
     def perform_create(self, serializer):
         with transaction.atomic():
             shop_name = self.request.data.get('shop_name')
             user = serializer.save()
-        
+
             if shop_name:
                 tenant = Tenant.objects.create(
-                    shop_name=shop_name, 
-                    owner_email=user.email
+                    shop_name=shop_name, owner_email=user.email
                 )
-                # Matches your model's OWNER choice
                 UserProfile.objects.create(user=user, tenant=tenant, role='OWNER')
                 user.is_active = False 
                 user.save()

@@ -1,5 +1,6 @@
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import User
+from django.db import models
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -46,10 +47,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-
         profile = getattr(user, 'profile', None)
 
         if profile:
+            token["staff_id"] = str(profile.id)
             token['tenant_id'] = str(profile.tenant.tenant_id) if profile.tenant else None
             token['role'] = profile.role
             token['tech_level'] = profile.tech_level
@@ -60,12 +61,43 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    # This line tells Django: "Go to the linked 'user' and get their 'username'"
     username = serializers.ReadOnlyField(source="user.username")
-
-    # Optional: Keep 'user' (the ID) so we can link it in React
-    user = serializers.ReadOnlyField(source="user.id")
+    user_id = serializers.ReadOnlyField(source="user.id")
+    hourly_rate = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False
+    )
 
     class Meta:
         model = UserProfile
-        fields = ["id", "user", "username", "role", "tech_level"]
+        fields = [
+            "id",
+            "user_id",
+            "user",
+            "username",
+            "role",
+            "tech_level",
+            "hourly_rate",
+        ]
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        tech = Technician.objects.filter(
+            full_name=instance.user.username, tenant=instance.tenant
+        ).first()
+        ret["hourly_rate"] = tech.hourly_rate if tech else 0.00
+        return ret
+
+    def update(self, instance, validated_data):
+        new_rate = validated_data.pop("hourly_rate", None)
+        instance = super().update(instance, validated_data)
+
+        if new_rate is not None:
+            tech, created = Technician.objects.get_or_create(
+                full_name=instance.user.username,
+                tenant=instance.tenant,
+                defaults={"role": instance.tech_level, "hourly_rate": new_rate},
+            )
+            if not created:
+                tech.hourly_rate = new_rate
+                tech.save()
+        return instance

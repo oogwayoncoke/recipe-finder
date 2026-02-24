@@ -1,7 +1,11 @@
-import datetime
 import uuid
+from datetime import timedelta
 
+from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from django.utils import timezone
 
 from .base import TenantModel
 
@@ -69,11 +73,11 @@ class WorkOrder(TenantModel):
     ticket_id = models.CharField(max_length=20, unique=True, editable=False, blank=True)
 
     def save(self, *args, **kwargs):
-        if not self.ticket_id:
-            # Generates a unique ID like WO-2202-A1B2
-            # The 'uuid' ensures you never have a 'Duplicate' error again
-            slug = uuid.uuid4().hex[:6].upper()
-            self.ticket_id = f"WO-{slug}"
+        # Auto-Transition Logic
+        if self.status == "pending" and (
+            self.assigned_osta_tech or self.assigned_sabi_tech
+        ):
+            self.status = "diagnosing"
 
         super().save(*args, **kwargs)
 
@@ -89,7 +93,7 @@ class Inventory(TenantModel):
 
     name = models.CharField(max_length=255)
     sku = models.CharField(max_length=100, blank=True, null=True)
-
+    low_stock_threshold = models.PositiveIntegerField(default=5)
     product_type = models.CharField(
         max_length=10, 
         choices=PRODUCT_TYPES, 
@@ -111,7 +115,9 @@ class Inventory(TenantModel):
         return f"{self.name} ({self.stock_count})"
 
 class PartUsage(TenantModel):
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, null=False)
+    work_order = models.ForeignKey(
+        WorkOrder, on_delete=models.CASCADE, null=False, related_name="requisitions"
+    )
     inventory_item = models.ForeignKey(
         Inventory, on_delete=models.CASCADE, null=False, related_name="parts_used"
     )
@@ -124,13 +130,86 @@ class PartUsage(TenantModel):
     )
 
 class Service(TenantModel):
-    work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, null=False)
+    work_order = models.ForeignKey(
+        WorkOrder,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="services",
+    )
     service_name = models.CharField(max_length=255, null=False)
     cost = models.DecimalField(max_digits=10, decimal_places=2, null=False)
-
+    standard_duration = models.DurationField(
+        null=True, blank=True, help_text="HH:MM:SS"
+    )
 
 class StatusUpdate(TenantModel):
     work_order = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='history')
     status_label = models.CharField(max_length=50) 
     note = models.TextField(blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
+
+
+class WorkSession(TenantModel):
+    work_order = models.ForeignKey(
+        "WorkOrder",
+        on_delete=models.CASCADE,
+        related_name="sessions",
+        null=True,
+        blank=True,
+    )
+
+    service = models.ForeignKey(
+        Service,
+        on_delete=models.CASCADE,
+        related_name="session_service",
+        blank=True,
+        null=True,
+    )
+    technician = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="work_sessions"
+    )
+
+    start_time = models.DateTimeField(default=timezone.now)
+    end_time = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-start_time"]
+
+    def __str__(self):
+        return f"{self.technician.username} - {self.service.service_name}"
+
+
+@receiver(post_delete, sender=PartUsage)
+def restore_inventory_stock(sender, instance, **kwargs):
+    if instance.inventory_item:
+        item = instance.inventory_item
+        item.stock_count += instance.quantity_used
+        item.save()
+
+
+class Expense(models.Model):
+    CATEGORY_CHOICES = [
+        ("parts", "Spare Parts"),
+        ("labor", "Technician/Labor"),
+        ("rent", "Shop Rent"),
+        ("utilities", "Electricity/Internet"),
+        ("marketing", "Marketing/Ads"),
+        ("other", "Miscellaneous"),
+    ]
+
+    tenant = models.ForeignKey(
+        "shops.Tenant", on_delete=models.CASCADE, related_name="expenses"
+    )
+    title = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default="other",
+    )
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} - {self.get_category_display()}"

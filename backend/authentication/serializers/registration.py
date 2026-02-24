@@ -144,34 +144,40 @@ class TechActivateSerializer(serializers.Serializer):
     token = serializers.UUIDField(write_only=True)
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True)
-    
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("This username is already taken.")
+        return value
+
     def create(self, validated_data):
-       
         from authentication.models import UserProfile
         from shops.models.auth import ActionToken
-        
-        token_id = validated_data.get('token')
-        
-        with transaction.atomic():
-    
-            try:
-                token_obj = ActionToken.objects.get(id=token_id)
-            except Exception:
-                raise serializers.ValidationError({"detail": "Token not found in DB."})
 
-    
+        token_id = validated_data.get('token')
+
+        with transaction.atomic():
+
+            try:
+                token_obj = ActionToken.objects.select_for_update().get(id=token_id)
+            except ActionToken.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"detail": "Invite link is invalid or has already been used."}
+                )
+
             user = User.objects.create_user(
                 username=validated_data['username'],
                 password=validated_data['password'],
                 is_active=True
             )
 
-            UserProfile.objects.create(
-                user=user,
-                tenant=token_obj.tenant,
-                role='TECH',
-                tech_level=getattr(token_obj, 'tech_level', 'NONE')
-            )
+            profile, created = UserProfile.objects.get_or_create(user=user)
+
+            profile.tenant = token_obj.tenant
+            profile.role = "TECHNICIAN"
+            profile.tech_level = getattr(token_obj, "tech_level", "NONE")
+            profile.save()
 
             token_obj.delete()
+
             return user

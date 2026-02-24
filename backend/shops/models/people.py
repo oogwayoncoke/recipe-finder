@@ -20,6 +20,13 @@ class CustomerPhone(TenantModel):
 
 class Technician(TenantModel):
     full_name = models.CharField(max_length=255, null=False)
+    profile = models.OneToOneField(
+        "authentication.UserProfile",
+        on_delete=models.CASCADE,
+        related_name="technician",
+        null=True,
+        blank=True,
+    )
     role = models.CharField(max_length=50, null=False)
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2,
                                       default=0.00,
@@ -31,9 +38,9 @@ class Technician(TenantModel):
         blank=True, 
         related_name='apprentices'
     )
-    
+
     def __str__(self):
-      return f'{self.full_name}({self.role} - ${self.hourly_rate}/hr)'
+        return f'{self.full_name}({self.role} - ${self.hourly_rate}/hr)'
 
 class TechnicianPhone(TenantModel):
   technician = models.ForeignKey(Technician, related_name='phones', on_delete=models.CASCADE)

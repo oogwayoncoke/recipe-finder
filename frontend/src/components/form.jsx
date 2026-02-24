@@ -1,3 +1,4 @@
+import { jwtDecode } from "jwt-decode";
 import { Eye, EyeOff, Lock, Mail, Store, User, UserCircle } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -47,12 +48,24 @@ function Form({ route, method }) {
       if (method === "login") {
         localStorage.setItem(ACCESS_TOKEN, res.data.access);
         localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
-        navigate("/");
+
+        const decoded = jwtDecode(res.data.access);
+        const { role, tech_level } = decoded;
+
+        if (role === "OWNER") {
+          navigate("/owner-dashboard");
+        } else if (tech_level === "OSTA") {
+          navigate("/osta-control");
+        } else if (tech_level === "SABI") {
+          navigate("/sabi-terminal");
+        } else {
+          navigate("/");
+        }
       } else {
         setSuccess("Success. The invitation has been sent to your email.");
         setTimeout(() => navigate("/login"), 3000);
       }
-  } catch (error) {
+    } catch (error) {
       const data = error.response?.data;
       let errorMsg = "The ledger rejected this entry.";
 
