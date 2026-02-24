@@ -128,7 +128,6 @@ class ServiceSerializer(serializers.ModelSerializer):
 
 
 class PartUsageSerializer(serializers.ModelSerializer):
-
     part_name = serializers.ReadOnlyField(source="inventory_item.name")
 
     class Meta:
@@ -147,14 +146,12 @@ class PartUsageSerializer(serializers.ModelSerializer):
 class WorkOrderSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source="item.name", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-
-    parts_used = PartUsageSerializer(many=True, read_only=True)
+    parts_used = PartUsageSerializer(source="requisitions", many=True, read_only=True)
     sessions = WorkSessionSerializer(many=True, read_only=True)
 
     services = serializers.PrimaryKeyRelatedField(
         queryset=Service.objects.all(), many=True, required=False
     )
-
     service_details = ServiceSerializer(source="services", many=True, read_only=True)
 
     class Meta:
@@ -174,10 +171,3 @@ class WorkOrderSerializer(serializers.ModelSerializer):
             "sessions",
             "created_at",
         ]
-
-    def update(self, instance, validated_data):
-        services_data = validated_data.pop("services", self.allow_null)
-        instance = super().update(instance, validated_data)
-        if services_data is not None:
-            instance.services.set(services_data)
-        return instance

@@ -31,15 +31,6 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             return WorkOrder.objects.none()
         return WorkOrder.objects.filter(tenant=profile.tenant)
 
-    # FIXED: Explicitly handle M2M updates during PATCH/PUT
-    def perform_update(self, serializer):
-        instance = serializer.save()
-        if "services" in self.request.data:
-            services_ids = self.request.data.get("services")
-            # Ensure we are dealing with a list
-            if isinstance(services_ids, list):
-                instance.services.set(services_ids)
-
     @action(detail=True, methods=["patch"], url_path="assign-techs")
     def assign_techs(self, request, pk=None):
         order = self.get_object()
@@ -50,8 +41,6 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # Rest of your generate_invoice and other actions stay exactly the same...
 
     @action(detail=True, methods=["post"], url_path="generate-invoice")
     def generate_invoice(self, request, pk=None):
@@ -98,14 +87,20 @@ class PartUsageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user_profile = getattr(self.request.user, "profile", None)
-        if not user_profile:
-            return PartUsage.objects.none()
-        return PartUsage.objects.filter(tenant=user_profile.tenant)
+        profile = getattr(self.request.user, "profile", None)
+        return (
+            PartUsage.objects.filter(tenant=profile.tenant)
+            if profile
+            else PartUsage.objects.none()
+        )
 
     def perform_create(self, serializer):
         inventory_id = self.request.data.get("inventory_item")
         inventory_item = get_object_or_404(Inventory, id=inventory_id)
+
+        inventory_item.stock_count -= int(self.request.data.get("quantity_used", 1))
+        inventory_item.save()
+
         serializer.save(
             tenant=self.request.user.profile.tenant,
             price_at_use=inventory_item.retail_price,
