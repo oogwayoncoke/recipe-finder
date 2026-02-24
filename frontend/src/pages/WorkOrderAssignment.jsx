@@ -368,7 +368,7 @@ const WorkOrderAssignment = () => {
     <div className="min-h-screen bg-[#0f1115] p-8 font-serif text-slate-200 relative">
       {notification.text && (
         <div
-          className={`fixed top-10 right-10 flex items-center gap-3 px-6 py-4 rounded-xl border z-[110] transition-all ${notification.type === "error" ? "bg-red-500/10 border-red-500/50 text-red-500 shadow-2xl" : "bg-emerald-500/10 border-emerald-500/50 text-emerald-500 shadow-2xl"}`}
+          className={`fixed top-10 right-10 flex items-center gap-3 px-6 py-4 rounded-xl border z-110 transition-all ${notification.type === "error" ? "bg-red-500/10 border-red-500/50 text-red-500 shadow-2xl" : "bg-emerald-500/10 border-emerald-500/50 text-emerald-500 shadow-2xl"}`}
         >
           <Activity
             size={16}
@@ -419,7 +419,7 @@ const WorkOrderAssignment = () => {
                 <div
                   className={`px-3 py-1 rounded-full text-[9px] uppercase font-black border tracking-widest ${order.status === "completed" ? "border-blue-500/30 text-blue-500 bg-blue-500/5" : "border-emerald-500/30 text-emerald-500 bg-emerald-500/5"}`}
                 >
-                  {order.status}
+                  {order.status.replace("_", " ")}
                 </div>
               </div>
 
@@ -521,12 +521,12 @@ const WorkOrderAssignment = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {modalSync && (
-              <div className="absolute inset-0 bg-[#0f1115]/60 backdrop-blur-sm z-[60] flex items-center justify-center">
+              <div className="absolute inset-0 bg-[#0f1115]/60 backdrop-blur-sm z-60 flex items-center justify-center">
                 <Loader2 className="text-[#c5a059] animate-spin" size={32} />
               </div>
             )}
 
-            <div className="p-8 border-b border-[#2d3139] flex justify-between items-center bg-gradient-to-r from-[#c5a059]/10 to-transparent">
+            <div className="p-8 border-b border-[#2d3139] flex justify-between items-center bg-linear-to-r from-[#c5a059]/10 to-transparent">
               <div>
                 <span className="text-[10px] text-[#c5a059] tracking-[0.3em] uppercase font-black italic">
                   Technical Spec // {selectedOrder.ticket_id}
@@ -543,10 +543,10 @@ const WorkOrderAssignment = () => {
                     className="bg-[#0f1115] border border-[#c5a059]/50 text-[#c5a059] text-[10px] uppercase font-black pl-6 pr-10 py-3 rounded-xl appearance-none outline-none focus:border-[#c5a059] transition-all cursor-pointer shadow-inner"
                   >
                     <option value="pending">Pending</option>
-                    <option value="diagnosing">Diagnosis</option>
-                    <option value="parts">Waiting Parts</option>
-                    <option value="working">Working</option>
-                    <option value="ready">Ready</option>
+                    <option value="diagnosing">In Diagnosis</option>
+                    <option value="parts">Waiting for Parts</option>
+                    <option value="working">Working on Device</option>
+                    <option value="ready">Ready for Pickup</option>
                     <option value="completed">Completed</option>
                   </select>
                   <ChevronDown
@@ -611,7 +611,8 @@ const WorkOrderAssignment = () => {
                           Deploy Parts
                         </button>
                       )}
-                      {selectedOrder.status === "working" && (
+                      {(selectedOrder.status === "working" ||
+                        selectedOrder.status === "parts") && (
                         <button
                           onClick={() => handleStatusChange("ready")}
                           className="px-6 py-3 rounded-xl text-[10px] uppercase font-black border border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-[#0f1115] transition-all"
@@ -642,7 +643,7 @@ const WorkOrderAssignment = () => {
                     <h4 className="text-[10px] uppercase text-slate-500 tracking-widest mb-4 italic font-bold">
                       System Description
                     </h4>
-                    <p className="text-sm text-slate-400 leading-relaxed font-sans bg-[#0f1115] p-5 rounded-2xl border border-[#2d3139] min-h-[100px]">
+                    <p className="text-sm text-slate-400 leading-relaxed font-sans bg-[#0f1115] p-5 rounded-2xl border border-[#2d3139] min-h-100px">
                       {selectedOrder.description ||
                         "No supplemental manifest provided."}
                     </p>
@@ -780,7 +781,7 @@ const WorkOrderAssignment = () => {
       )}
 
       {isPartModalOpen && (
-        <div className="fixed inset-0 bg-[#0f1115]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[#0f1115]/95 backdrop-blur-xl z-100 flex items-center justify-center p-4">
           <div className="bg-[#1a1d23] border border-[#c5a059]/30 w-full max-w-md rounded-3xl p-8 shadow-2xl">
             <div className="mb-8 flex justify-between items-start">
               <div>
