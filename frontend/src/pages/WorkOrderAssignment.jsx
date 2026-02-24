@@ -4,10 +4,12 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  FileText,
   Loader2,
   Package,
   PackageCheck,
   Plus,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
   Wrench,
@@ -15,9 +17,11 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 
 const WorkOrderAssignment = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [staff, setStaff] = useState([]);
   const [allPersonnel, setAllPersonnel] = useState([]);
@@ -292,12 +296,20 @@ const WorkOrderAssignment = () => {
 
   const handleGenerateInvoice = async () => {
     try {
-      await api.post(
+      const res = await api.post(
         `/shops/work-orders/${selectedOrder.id}/generate-invoice/`,
       );
+
+      showNotification("Invoice generated.", "success");
+
+      if (res.data && res.data.id) {
+        setTimeout(() => {
+          navigate(`/invoices/${res.data.id}`);
+        }, 800);
+      }
+
       await refreshModalData(selectedOrder.id);
       fetchData();
-      showNotification("Invoice generated.", "success");
     } catch (err) {
       showNotification("Generation failed.", "error");
     }
@@ -368,7 +380,7 @@ const WorkOrderAssignment = () => {
     <div className="min-h-screen bg-[#0f1115] p-8 font-serif text-slate-200 relative">
       {notification.text && (
         <div
-          className={`fixed top-10 right-10 flex items-center gap-3 px-6 py-4 rounded-xl border z-110 transition-all ${notification.type === "error" ? "bg-red-500/10 border-red-500/50 text-red-500 shadow-2xl" : "bg-emerald-500/10 border-emerald-500/50 text-emerald-500 shadow-2xl"}`}
+          className={`fixed top-10 right-10 flex items-center gap-3 px-6 py-4 rounded-xl border z-[110] transition-all ${notification.type === "error" ? "bg-red-500/10 border-red-500/50 text-red-500 shadow-2xl" : "bg-emerald-500/10 border-emerald-500/50 text-emerald-500 shadow-2xl"}`}
         >
           <Activity
             size={16}
@@ -521,12 +533,12 @@ const WorkOrderAssignment = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {modalSync && (
-              <div className="absolute inset-0 bg-[#0f1115]/60 backdrop-blur-sm z-60 flex items-center justify-center">
+              <div className="absolute inset-0 bg-[#0f1115]/60 backdrop-blur-sm z-[60] flex items-center justify-center">
                 <Loader2 className="text-[#c5a059] animate-spin" size={32} />
               </div>
             )}
 
-            <div className="p-8 border-b border-[#2d3139] flex justify-between items-center bg-linear-to-r from-[#c5a059]/10 to-transparent">
+            <div className="p-8 border-b border-[#2d3139] flex justify-between items-center bg-gradient-to-r from-[#c5a059]/10 to-transparent">
               <div>
                 <span className="text-[10px] text-[#c5a059] tracking-[0.3em] uppercase font-black italic">
                   Technical Spec // {selectedOrder.ticket_id}
@@ -581,7 +593,11 @@ const WorkOrderAssignment = () => {
                     {totalTimeLogged}
                   </p>
                 </div>
-                {!isOwner && (
+                {(isOwner ||
+                  String(selectedOrder.assigned_osta_tech) ===
+                    String(myTechId) ||
+                  String(selectedOrder.assigned_sabi_tech) ===
+                    String(myTechId)) && (
                   <button
                     onClick={handleToggleDiagnosis}
                     className={`px-12 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${isThisOrderActive ? "bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.3)]" : "bg-[#c5a059] text-[#0f1115] hover:bg-white"}`}
@@ -598,43 +614,58 @@ const WorkOrderAssignment = () => {
                       Workflow Engine
                     </h4>
                     <div className="flex flex-wrap gap-3">
-                      {(selectedOrder.status === "diagnosing" ||
-                        selectedOrder.status === "parts" ||
-                        selectedOrder.status === "pending") && (
-                        <button
-                          onClick={() => {
-                            fetchInventory();
-                            setIsPartModalOpen(true);
-                          }}
-                          className="px-6 py-3 rounded-xl text-[10px] uppercase font-black border border-[#c5a059] text-[#c5a059] hover:bg-[#c5a059] hover:text-[#0f1115] transition-all"
-                        >
-                          Deploy Parts
-                        </button>
-                      )}
-                      {(selectedOrder.status === "working" ||
-                        selectedOrder.status === "parts") && (
-                        <button
-                          onClick={() => handleStatusChange("ready")}
-                          className="px-6 py-3 rounded-xl text-[10px] uppercase font-black border border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-[#0f1115] transition-all"
-                        >
-                          Mark Ready
-                        </button>
-                      )}
-                      {selectedOrder.status === "ready" && (
-                        <button
-                          onClick={() => handleHandover(selectedOrder.id)}
-                          className="px-6 py-3 rounded-xl text-[10px] uppercase font-black bg-[#c5a059] text-[#0f1115] hover:opacity-90 transition-all"
-                        >
-                          Finalize Handover
-                        </button>
-                      )}
-                      {selectedOrder.status === "completed" && (
-                        <button
-                          onClick={handleGenerateInvoice}
-                          className="px-6 py-3 rounded-xl text-[10px] uppercase font-black bg-emerald-600 text-white hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20"
-                        >
-                          Generate Invoice
-                        </button>
+                      {isOwner ||
+                      String(selectedOrder.assigned_osta_tech) ===
+                        String(myTechId) ||
+                      String(selectedOrder.assigned_sabi_tech) ===
+                        String(myTechId) ? (
+                        <>
+                          {(selectedOrder.status === "diagnosing" ||
+                            selectedOrder.status === "parts" ||
+                            selectedOrder.status === "pending") && (
+                            <button
+                              onClick={() => {
+                                fetchInventory();
+                                setIsPartModalOpen(true);
+                              }}
+                              className="px-6 py-3 rounded-xl text-[10px] uppercase font-black border border-[#c5a059] text-[#c5a059] hover:bg-[#c5a059] hover:text-[#0f1115] transition-all"
+                            >
+                              Deploy Parts
+                            </button>
+                          )}
+                          {(selectedOrder.status === "working" ||
+                            selectedOrder.status === "parts") && (
+                            <button
+                              onClick={() => handleStatusChange("ready")}
+                              className="px-6 py-3 rounded-xl text-[10px] uppercase font-black border border-emerald-500 text-emerald-500 hover:bg-emerald-500 hover:text-[#0f1115] transition-all"
+                            >
+                              Mark Ready
+                            </button>
+                          )}
+                          {selectedOrder.status === "ready" && (
+                            <div className="flex gap-3">
+                              <button
+                                onClick={handleGenerateInvoice}
+                                className="px-6 py-3 rounded-xl text-[10px] uppercase font-black bg-emerald-600 text-white hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                              >
+                                <FileText size={14} /> Create Invoice
+                              </button>
+                              <button
+                                onClick={() => handleHandover(selectedOrder.id)}
+                                className="px-6 py-3 rounded-xl text-[10px] uppercase font-black bg-[#c5a059] text-[#0f1115] hover:opacity-90 transition-all"
+                              >
+                                Finalize Handover
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-xl">
+                          <ShieldAlert size={14} className="text-red-500" />
+                          <span className="text-[10px] uppercase font-bold text-red-500">
+                            Viewing Only - Task Unassigned
+                          </span>
+                        </div>
                       )}
                     </div>
                   </section>
@@ -643,7 +674,7 @@ const WorkOrderAssignment = () => {
                     <h4 className="text-[10px] uppercase text-slate-500 tracking-widest mb-4 italic font-bold">
                       System Description
                     </h4>
-                    <p className="text-sm text-slate-400 leading-relaxed font-sans bg-[#0f1115] p-5 rounded-2xl border border-[#2d3139] min-h-100px">
+                    <p className="text-sm text-slate-400 leading-relaxed font-sans bg-[#0f1115] p-5 rounded-2xl border border-[#2d3139] min-h-[100px]">
                       {selectedOrder.description ||
                         "No supplemental manifest provided."}
                     </p>
@@ -693,12 +724,16 @@ const WorkOrderAssignment = () => {
                             <span className="text-[10px] font-mono text-slate-500 font-bold">
                               {s.standard_duration}m Target
                             </span>
-                            <button
-                              onClick={() => handleRemoveService(s.id)}
-                              className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-white p-2 transition-all"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            {(isOwner ||
+                              String(selectedOrder.assigned_osta_tech) ===
+                                String(myTechId)) && (
+                              <button
+                                onClick={() => handleRemoveService(s.id)}
+                                className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-white p-2 transition-all"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -711,15 +746,21 @@ const WorkOrderAssignment = () => {
                         Asset Consumption
                       </h4>
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            fetchInventory();
-                            setIsPartModalOpen(true);
-                          }}
-                          className="bg-[#c5a059] text-[#0f1115] px-4 py-2 rounded-xl text-[10px] uppercase font-black hover:bg-white transition-all"
-                        >
-                          Add Part
-                        </button>
+                        {(isOwner ||
+                          String(selectedOrder.assigned_osta_tech) ===
+                            String(myTechId) ||
+                          String(selectedOrder.assigned_sabi_tech) ===
+                            String(myTechId)) && (
+                          <button
+                            onClick={() => {
+                              fetchInventory();
+                              setIsPartModalOpen(true);
+                            }}
+                            className="bg-[#c5a059] text-[#0f1115] px-4 py-2 rounded-xl text-[10px] uppercase font-black hover:bg-white transition-all"
+                          >
+                            Add Part
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -752,12 +793,16 @@ const WorkOrderAssignment = () => {
                               <p className="text-sm text-[#c5a059] font-black">
                                 × {p.quantity_used}
                               </p>
-                              <button
-                                onClick={() => handleRemovePart(p.id)}
-                                className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-white p-2 transition-all"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              {(isOwner ||
+                                String(selectedOrder.assigned_osta_tech) ===
+                                  String(myTechId)) && (
+                                <button
+                                  onClick={() => handleRemovePart(p.id)}
+                                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-white p-2 transition-all"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
                             </div>
                           </div>
                         );
@@ -781,7 +826,7 @@ const WorkOrderAssignment = () => {
       )}
 
       {isPartModalOpen && (
-        <div className="fixed inset-0 bg-[#0f1115]/95 backdrop-blur-xl z-100 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[#0f1115]/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
           <div className="bg-[#1a1d23] border border-[#c5a059]/30 w-full max-w-md rounded-3xl p-8 shadow-2xl">
             <div className="mb-8 flex justify-between items-start">
               <div>

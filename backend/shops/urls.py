@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views.finance import FinanceSummaryView
+from .views.finance import FinanceSummaryView, InvoiceViewSet
 from .views.operations import (
     InventoryViewSet,
     PartUsageViewSet,
@@ -29,6 +29,7 @@ router.register(r"work-orders", WorkOrderViewSet, basename="work-order")
 router.register(r"part-usage", PartUsageViewSet, basename="part-usage")
 router.register(r"work-sessions", WorkSessionViewSet, basename="worksession")
 router.register(r"services", ServiceViewSet, basename="service")
+router.register(r"invoices", InvoiceViewSet, basename="invoices")
 urlpatterns = [
     path("invites/", CreateActionLinkView.as_view(), name="create-action-linx"),
     path("validate/<uuid:token_id>/", ValidateOneClickView.as_view(), name="validate"),

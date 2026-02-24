@@ -4,25 +4,24 @@ from .base import TenantModel
 
 
 class Invoice(TenantModel):
-  tenant = models.ForeignKey('shops.Tenant', on_delete=models.CASCADE,null=False)
-  work_order = models.OneToOneField('shops.WorkOrder',
-                                    on_delete=models.CASCADE,
-                                    related_name='invoice')
-  subtotal = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
-  tax = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
-  calculated_total = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
-  is_paid = models.BooleanField(default=False, null=False)
-  pdf_copy = models.FileField(null=True,blank=True)
-  issued_date = models.DateField(auto_now_add=True)
-  
-  @property
-  def total_amount(self):
-    parts = sum(p.quantity_used * (p.price_at_use or 0) for p in self.work_order.parts_used.all())
-    services = sum(s.cost for s in self.work_order.services.all())
-    return parts + services
+    tenant = models.ForeignKey("shops.Tenant", on_delete=models.CASCADE, null=False)
+    work_order = models.OneToOneField(
+        "shops.WorkOrder", on_delete=models.CASCADE, related_name="invoice"
+    )
+    subtotal = models.DecimalField(
+        max_digits=12, decimal_places=2, null=False, default=0.00
+    )
+    tax = models.DecimalField(max_digits=12, decimal_places=2, null=False, default=0.00)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    calculated_total = models.DecimalField(
+        max_digits=12, decimal_places=2, null=False, default=0.00
+    )
+    is_paid = models.BooleanField(default=False, null=False)
+    pdf_copy = models.FileField(null=True, blank=True)
+    issued_date = models.DateField(auto_now_add=True)
 
-  def __str__(self):
-    return f"Invoice for Order {self.work_order.id}"
+    def __str__(self):
+        return f"Invoice {self.id} - {self.total_amount} EGP"
 
 
 class Payment(models.Model):

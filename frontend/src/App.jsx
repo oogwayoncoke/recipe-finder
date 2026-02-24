@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import Induction from "./pages/Induction";
 import InventoryTerminal from "./pages/Inventory";
 import Invite from "./pages/Invites";
+import InvoiceDetail from "./pages/InvoiceDetails";
 import Login from "./pages/login";
 import NotFound from "./pages/notfound";
 import OstaTerminal from "./pages/OstaTermianal";
@@ -106,7 +107,7 @@ export default function App() {
         <Route path="/track/:ticketId" element={<TrackOrder />} />
         <Route path="/induction/:token" element={<Induction />} />
         <Route path="/work-order-setup/:token" element={<WorkOrderForm />} />
-
+        <Route path="/invoices/:id" element={<InvoiceDetail />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
