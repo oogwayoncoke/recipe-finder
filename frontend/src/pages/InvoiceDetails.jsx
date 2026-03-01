@@ -3,11 +3,8 @@ import {
   CheckCircle,
   ChevronLeft,
   CreditCard,
-  Edit3,
   Package,
   Printer,
-  Save,
-  XCircle,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,8 +16,6 @@ const InvoiceDetail = () => {
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [bargainPrice, setBargainPrice] = useState(0);
 
   const token = localStorage.getItem("access");
   const authPayload = useMemo(() => {
@@ -37,7 +32,6 @@ const InvoiceDetail = () => {
     try {
       const res = await api.get(`/shops/invoices/${id}/`);
       setInvoice(res.data);
-      setBargainPrice(res.data.total_amount || 0);
     } catch (err) {
       console.error("Failed to load invoice");
     } finally {
@@ -49,31 +43,14 @@ const InvoiceDetail = () => {
     fetchInvoice();
   }, [fetchInvoice]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleSaveBargain = async () => {
-    try {
-      const res = await api.post(
-        `/shops/work-orders/${invoice.work_order}/generate-invoice/`,
-        {
-          total_override: bargainPrice,
-        },
-      );
-      setInvoice({ ...invoice, total_amount: res.data.total });
-      setIsEditing(false);
-    } catch (err) {
-      alert("Failed to save bargained price.");
-    }
-  };
+  const handlePrint = () => window.print();
 
   const handleMarkPaid = async () => {
     try {
       await api.patch(`/shops/invoices/${id}/mark-paid/`);
       fetchInvoice();
     } catch (err) {
-      alert("Settlement confirmation failed.");
+      alert("Settlement confirmed.");
     }
   };
 
@@ -125,7 +102,7 @@ const InvoiceDetail = () => {
               Invoice
             </h1>
             <p className="text-[#c5a059] text-xs font-black tracking-[0.2em] uppercase">
-              {"Ref // "}{" "}
+              Ref //{" "}
               {invoice.work_order_ticket_id || `WO-${invoice.work_order}`}
             </p>
           </div>
@@ -149,30 +126,6 @@ const InvoiceDetail = () => {
         <div className="p-10 space-y-12">
           <section>
             <h4 className="text-[10px] uppercase text-slate-500 font-black tracking-widest mb-4 border-b border-[#2d3139] pb-2">
-              Asset Identification
-            </h4>
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <p className="text-[9px] text-slate-500 uppercase font-bold mb-1">
-                  Item Description
-                </p>
-                <p className="text-lg font-bold uppercase tracking-tight">
-                  {invoice.item_name || "Repair Service"}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] text-slate-500 uppercase font-bold mb-1">
-                  Filing Date
-                </p>
-                <p className="text-sm font-bold uppercase">
-                  {new Date().toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <h4 className="text-[10px] uppercase text-slate-500 font-black tracking-widest mb-4 border-b border-[#2d3139] pb-2">
               Service Manifest
             </h4>
             <table className="w-full text-left">
@@ -186,28 +139,29 @@ const InvoiceDetail = () => {
               </thead>
               <tbody className="text-sm">
                 <tr className="border-b border-[#2d3139]">
-                  <td className="py-6 font-bold flex items-center gap-3 italic">
+                  <td className="py-6 font-bold flex items-center gap-3 italic text-slate-200">
                     <Zap size={14} className="text-[#c5a059]" /> Technical Labor
                   </td>
-                  <td className="py-6 text-center">1</td>
-                  <td className="py-6 text-right">
+                  <td className="py-6 text-center text-slate-200">1</td>
+                  <td className="py-6 text-right text-slate-200">
                     {Number(invoice.labor_cost || 0).toFixed(2)} EGP
                   </td>
-                  <td className="py-6 text-right font-black">
+                  <td className="py-6 text-right font-black text-slate-200">
                     {Number(invoice.labor_cost || 0).toFixed(2)} EGP
                   </td>
                 </tr>
-
                 {(invoice.parts_breakdown || []).map((p, idx) => (
                   <tr key={idx} className="border-b border-[#2d3139]">
-                    <td className="py-6 flex items-center gap-3 italic">
+                    <td className="py-6 flex items-center gap-3 italic text-slate-200">
                       <Package size={14} className="text-slate-500" /> {p.name}
                     </td>
-                    <td className="py-6 text-center">{p.quantity}</td>
-                    <td className="py-6 text-right">
+                    <td className="py-6 text-center text-slate-200">
+                      {p.quantity}
+                    </td>
+                    <td className="py-6 text-right text-slate-200">
                       {Number(p.price).toFixed(2)} EGP
                     </td>
-                    <td className="py-6 text-right font-bold">
+                    <td className="py-6 text-right font-bold text-slate-200">
                       {(Number(p.price) * Number(p.quantity)).toFixed(2)} EGP
                     </td>
                   </tr>
@@ -216,86 +170,16 @@ const InvoiceDetail = () => {
             </table>
           </section>
 
-          <section className="flex justify-end">
-            <div className="w-full max-w-xs space-y-4">
-              <div className="flex justify-between items-center pt-4 border-t border-[#c5a059]/30">
-                <span className="text-[#c5a059] uppercase font-black text-xs tracking-widest">
-                  Final Total
-                </span>
-                <div className="text-right">
-                  {isEditing && isOwner ? (
-                    <div className="flex flex-col items-end gap-3 print:hidden">
-                      <input
-                        type="number"
-                        value={bargainPrice}
-                        onChange={(e) => setBargainPrice(e.target.value)}
-                        className="bg-[#0f1115] border border-[#c5a059] text-white text-3xl font-black p-3 rounded-xl w-40 text-right outline-none shadow-inner"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setIsEditing(false)}
-                          className="p-2 text-slate-500 hover:text-white transition-all"
-                        >
-                          <XCircle size={18} />
-                        </button>
-                        <button
-                          onClick={handleSaveBargain}
-                          className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-2"
-                        >
-                          <Save size={14} /> Save Price
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="group relative">
-                      <span
-                        onClick={() => isOwner && setIsEditing(true)}
-                        className={`text-3xl font-black tracking-tighter text-white print:text-black ${isOwner ? "cursor-pointer hover:text-[#c5a059] transition-all" : ""}`}
-                      >
-                        {(() => {
-                          const total = Number(invoice.total_amount);
-                          const labor = Number(invoice.labor_cost || 0);
-                          const parts = (invoice.parts_breakdown || []).reduce(
-                            (acc, p) =>
-                              acc + Number(p.price) * Number(p.quantity),
-                            0,
-                          );
-                          const finalDisplay =
-                            total > 0 ? total : labor + parts;
-                          return finalDisplay.toFixed(2);
-                        })()}{" "}
-                        EGP
-                      </span>
-                      {isOwner && (
-                        <div className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all print:hidden">
-                          <Edit3 size={14} className="text-[#c5a059]" />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {isOwner && !isEditing && (
-                    <p className="text-[8px] text-slate-500 uppercase mt-2 italic font-bold tracking-tighter print:hidden">
-                      Bargain Mode Active // Click to Adjust
-                    </p>
-                  )}
-                </div>
+          <section className="flex justify-end pt-4 border-t border-[#c5a059]/30">
+            <div className="text-right">
+              <span className="text-[#c5a059] uppercase font-black text-xs tracking-widest">
+                Final Total
+              </span>
+              <div className="text-3xl font-black tracking-tighter text-white">
+                {Number(invoice.total_amount || 0).toFixed(2)} EGP
               </div>
             </div>
           </section>
-        </div>
-
-        <div className="p-10 bg-[#0f1115] border-t border-[#2d3139] flex justify-between items-center print:bg-none">
-          <div className="flex items-center gap-4 text-slate-600">
-            <CreditCard size={32} strokeWidth={1} />
-            <div className="text-[8px] uppercase leading-tight font-bold">
-              Electronic Settlement System <br />
-              Workshop Distribution Terminal
-            </div>
-          </div>
-          <div className="text-right text-[8px] text-slate-600 uppercase font-black tracking-[0.2em]">
-            Document Generated Locally <br />
-            By Oogway Management v2.0
-          </div>
         </div>
       </div>
     </div>

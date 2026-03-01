@@ -5,6 +5,7 @@ import {
   DollarSign,
   Package,
   TrendingUp,
+  UserPlus,
   Wallet,
   Wrench,
 } from "lucide-react";
@@ -143,7 +144,7 @@ const OwnerDashboard = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <NavCard
           title="Manifest Status"
           value={stats.activeOrders}
@@ -161,6 +162,15 @@ const OwnerDashboard = () => {
           colorClass="text-orange-500"
           path="/inventory"
           description={`Asset valuation currently holding at EGP ${stats.inventoryValue}.`}
+        />
+        <NavCard
+          title="Personnel Access"
+          value="Invites"
+          subValue="Manage"
+          icon={UserPlus}
+          colorClass="text-purple-500"
+          path="/invites"
+          description="Dispatch or manage encrypted access credentials for new workshop personnel."
         />
         <NavCard
           title="Treasury Logic"
