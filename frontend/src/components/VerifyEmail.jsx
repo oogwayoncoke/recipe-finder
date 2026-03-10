@@ -1,70 +1,112 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api";
 
-const VerifyEmail = () => {
-  const { key } = useParams();
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+const STATUS = {
+  LOADING: "loading",
+  SUCCESS: "success",
+  FAILED: "failed",
+};
+
+export default function VerifyEmail() {
+  const { key } = useParams(); // route: /verify-email/:key
   const navigate = useNavigate();
-  const [status, setStatus] = useState("verifying");
+  const [status, setStatus] = useState(STATUS.LOADING);
 
   useEffect(() => {
-    const confirmEmail = async () => {
-      try {
-        await api.post("/authentication/verify-email/", { key });
-        setStatus("success");
-        setTimeout(() => {
-          navigate("/login");
-        }, 3000);
-      } catch (error) {
-        alert(error);
-      }
-    };
-    confirmEmail();
-  }, [key, navigate]);
+    if (!key) {
+      setStatus(STATUS.FAILED);
+      return;
+    }
+
+    fetch(`${API}/authentication/verify-email/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setStatus(STATUS.FAILED);
+          return;
+        }
+        setStatus(STATUS.SUCCESS);
+      })
+      .catch(() => setStatus(STATUS.FAILED));
+  }, [key]);
+
   return (
-    <div className="flex h-screen justify-center items-center bg-[#0f1115] font-sans">
-      <div className="flex flex-col gap-8 justify-center items-center bg-[#1a1d23] h-fit w-full max-w-md rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-[#2d3139] p-12 text-center">
-        <h1 className="text-[#c5a059] text-3xl font-serif tracking-widest uppercase mb-2">
-          Shepherd
-        </h1>
+    <div className="min-h-screen bg-[#111110] flex items-center justify-center p-8">
+      <div className="w-full max-w-sm animate-fade-up">
+        {/* Logo */}
+        <div className="font-serif text-[2rem] text-[#e8e6e0] tracking-tight leading-none mb-8">
+          di<span className="text-[#d4a843] italic">sh</span>
+        </div>
 
-        {status === "verifying" && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#c5a059]"></div>
-            <h2 className="text-slate-100 font-serif italic tracking-wide">
-              Authenticating your credentials...
-            </h2>
-          </div>
-        )}
+        <div className="bg-[#1a1a18] border border-[#2e2e2b] rounded-md p-8 text-center">
+          {status === STATUS.LOADING && (
+            <>
+              <Spinner />
+              <h2 className="font-serif text-lg text-[#e8e6e0] mb-2">
+                Verifying your email
+              </h2>
+              <p className="font-mono text-xs text-[#6b6b67] tracking-wide">
+                hang on a second...
+              </p>
+            </>
+          )}
 
-        {status === "success" && (
-          <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-500">
-            <div className="text-[#c5a059] text-6xl mb-2">✓</div>
-            <h2 className="text-slate-100 text-xl font-serif tracking-wide">
-              Identity Verified
-            </h2>
-            <p className="text-slate-500 text-sm uppercase tracking-widest">
-              Redirecting to the estate login...
-            </p>
-          </div>
-        )}
+          {status === STATUS.SUCCESS && (
+            <>
+              <div className="w-10 h-10 rounded-full bg-[#5a8a5a]/15 border border-[#5a8a5a]/40 flex items-center justify-center mx-auto mb-4">
+                <span className="text-[#5a8a5a] text-sm font-mono">✓</span>
+              </div>
+              <h2 className="font-serif text-xl text-[#e8e6e0] mb-2">
+                You're verified
+              </h2>
+              <p className="text-sm text-[#6b6b67] font-light leading-relaxed mb-6">
+                Your account is active. You can log in now.
+              </p>
+              <button
+                onClick={() => navigate("/login", { replace: true })}
+                className="bg-[#d4a843] text-[#111110] font-mono text-[0.78rem] font-medium tracking-wider px-5 py-2.5 rounded-md hover:opacity-85 transition-opacity"
+              >
+                Go to login →
+              </button>
+            </>
+          )}
 
-        {status === "error" && (
-          <div className="flex flex-col items-center gap-4">
-            <div className="text-red-900 text-6xl mb-2">✕</div>
-            <h2 className="text-slate-100 font-serif tracking-wide">
-              Invalid or Expired Link
-            </h2>
-            <button
-              onClick={() => navigate("/signup")}
-              className="text-[#c5a059] hover:underline text-sm uppercase tracking-widest italic"
-            >
-              Request New Invitation
-            </button>
-          </div>
-        )}
+          {status === STATUS.FAILED && (
+            <>
+              <div className="w-10 h-10 rounded-full bg-[#c0574a]/15 border border-[#c0574a]/40 flex items-center justify-center mx-auto mb-4">
+                <span className="text-[#c0574a] text-sm font-mono">✕</span>
+              </div>
+              <h2 className="font-serif text-xl text-[#e8e6e0] mb-2">
+                Link invalid or expired
+              </h2>
+              <p className="text-sm text-[#6b6b67] font-light leading-relaxed mb-6">
+                This verification link has expired or already been used. Try
+                registering again.
+              </p>
+              <button
+                onClick={() => navigate("/login", { replace: true })}
+                className="font-mono text-xs text-[#6b6b67] hover:text-[#a8a6a0] transition-colors tracking-wide"
+              >
+                Back to login →
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
-};
-export default VerifyEmail;
+}
+
+function Spinner() {
+  return (
+    <div className="flex justify-center mb-4">
+      <div className="w-8 h-8 border border-[#2e2e2b] border-t-[#d4a843] rounded-full animate-spin" />
+    </div>
+  );
+}

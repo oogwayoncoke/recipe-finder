@@ -1,252 +1,247 @@
-import { jwtDecode } from "jwt-decode";
-import { Eye, EyeOff, Lock, Mail, Store, User, UserCircle } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import api from "../api";
-import { ACCESS_TOKEN, REFRESH_TOKEN } from "../constants";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-function Form({ route, method }) {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [shopName, setShopName] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [password1, setPassword1] = useState("");
-  const [password2, setPassword2] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+export default function AuthForm() {
+  const [mode, setMode] = useState("login"); // 'login' | 'register'
+  const [fields, setFields] = useState({
+    username: "",
+    email: "",
+    password: "",
+    password2: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [submitting, setSub] = useState(false);
+  const [registered, setReg] = useState(false);
 
+  const { login, register } = useAuth();
   const navigate = useNavigate();
-  const name = method === "login" ? "Login" : "Register";
+  const location = useLocation();
+  const from = location.state?.from?.pathname ?? "/discover";
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
+  function set(key, val) {
+    setFields((f) => ({ ...f, [key]: val }));
+    setErrors((e) => ({ ...e, [key]: undefined, non_field_errors: undefined }));
+  }
 
-    const nameParts = fullName.trim().split(" ");
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+  function switchMode(m) {
+    setMode(m);
+    setErrors({});
+    setFields({ username: "", email: "", password: "", password2: "" });
+  }
 
-    const requestData =
-      method === "signup"
-        ? {
-            username,
-            email,
-            shop_name: shopName,
-            first_name: firstName,
-            last_name: lastName,
-            password1: password1,
-            password2: password2,
-          }
-        : { username, password: password1 };
-
-    try {
-      const res = await api.post(route, requestData);
-      if (method === "login") {
-        localStorage.setItem(ACCESS_TOKEN, res.data.access);
-        localStorage.setItem(REFRESH_TOKEN, res.data.refresh);
-
-        const decoded = jwtDecode(res.data.access);
-        const { role, tech_level } = decoded;
-
-        if (role === "OWNER") {
-          navigate("/owner-dashboard");
-        } else if (tech_level === "OSTA") {
-          navigate("/osta-control");
-        } else if (tech_level === "SABI") {
-          navigate("/sabi-terminal");
-        } else {
-          navigate("/");
-        }
-      } else {
-        setSuccess("Success. The invitation has been sent to your email.");
-        setTimeout(() => navigate("/login"), 3000);
-      }
-    } catch (error) {
-      const data = error.response?.data;
-      let errorMsg = "The ledger rejected this entry.";
-
-      if (data) {
-        if (typeof data === "string") {
-          errorMsg = data;
-        } else if (typeof data === "object") {
-          if (data.detail) {
-            errorMsg = data.detail;
-          } else if (data.non_field_errors) {
-            errorMsg = data.non_field_errors[0];
-          } else {
-            const fields = Object.keys(data);
-            const firstField = fields[0];
-            const msg = Array.isArray(data[firstField])
-              ? data[firstField][0]
-              : data[firstField];
-
-            const cleanField = firstField
-              .replace(/_/g, " ")
-              .replace(/\b\w/g, (l) => l.toUpperCase());
-            errorMsg = `${cleanField}: ${msg}`;
-          }
-        }
-      } else {
-        errorMsg = error.message;
-      }
-      setError(errorMsg);
-    } finally {
-      setLoading(false);
+  function parseErrors(raw) {
+    if (typeof raw === "string") return { non_field_errors: raw };
+    const flat = {};
+    for (const [k, v] of Object.entries(raw)) {
+      flat[k] = Array.isArray(v) ? v[0] : String(v);
     }
-  };
+    return flat;
+  }
 
-  const inputWrapper = "relative w-3/4";
-  const iconClass = "absolute left-3 top-3 w-5 h-5 text-[#c5a059] opacity-50";
-  const inputClass =
-    "w-full p-3 pl-10 bg-[#13151a] border border-[#4A4439] rounded-lg transition-all focus:border-[#C5A059] outline-none font-serif text-slate-100 placeholder:text-slate-600";
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSub(true);
+    setErrors({});
+    try {
+      if (mode === "login") {
+        await login(fields.username, fields.password);
+        navigate(from, { replace: true });
+      } else {
+        await register({
+          username: fields.username,
+          email: fields.email,
+          password: fields.password,
+          password2: fields.password2,
+        });
+        setReg(true);
+      }
+    } catch (err) {
+      setErrors(parseErrors(err));
+    } finally {
+      setSub(false);
+    }
+  }
 
-  return (
-    <div className="min-h-screen flex justify-center items-center bg-[#0f1115] px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-col justify-center items-center gap-4 bg-[#1a1d23] border border-[#2d3139] h-fit py-10 w-full max-w-md rounded-2xl shadow-2xl p-6 relative overflow-hidden"
-      >
-        <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-transparent via-[#c5a059] to-transparent opacity-50" />
-
-        <div className="text-center mb-6 flex flex-col items-center">
-          <div className="w-16 h-16 bg-[#c5a059]/10 rounded-full mb-4 border border-[#c5a059]/20 flex items-center justify-center">
-            <Lock className="text-[#c5a059] w-8 h-8" />
-          </div>
-          <h1 className="text-4xl text-[#c5a059] font-serif tracking-widest uppercase mb-1">
-            Shepherd
-          </h1>
-          <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] italic">
-            {name} to the estate
+  // ── Post-register: check your email ──────────────────────────────────────
+  if (registered) {
+    return (
+      <Page>
+        <Logo />
+        <div className="mt-8 bg-[#1a1a18] border border-[#2e2e2b] rounded-md p-8 text-center animate-fade-up">
+          <div className="text-3xl mb-3 opacity-50">✉</div>
+          <h2 className="font-serif text-xl text-[#e8e6e0] mb-2">
+            Check your email
+          </h2>
+          <p className="text-sm text-[#6b6b67] font-light leading-relaxed mb-5">
+            We sent a verification link to{" "}
+            <span className="text-[#a8a6a0]">{fields.email}</span>.
+            <br />
+            Click it to activate your account.
           </p>
-        </div>
-
-        {error && (
-          <div className="w-3/4 p-3 mb-2 bg-red-500/10 border border-red-500/50 rounded-lg">
-            <p className="text-red-500 text-[11px] font-sans uppercase tracking-wider text-center">
-              {error}
-            </p>
-          </div>
-        )}
-
-        {success && (
-          <div className="w-3/4 p-3 mb-2 bg-emerald-500/10 border border-emerald-500/50 rounded-lg">
-            <p className="text-emerald-500 text-[11px] font-sans uppercase tracking-wider text-center italic">
-              {success}
-            </p>
-          </div>
-        )}
-
-        <div className={inputWrapper}>
-          <User className={iconClass} />
-          <input
-            type="text"
-            value={username}
-            className={inputClass}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username"
-            required
-          />
-        </div>
-
-        {method === "signup" && (
-          <>
-            <div className={inputWrapper}>
-              <Store className={iconClass} />
-              <input
-                type="text"
-                value={shopName}
-                className={inputClass}
-                onChange={(e) => setShopName(e.target.value)}
-                placeholder="Shop Name"
-                required
-              />
-            </div>
-            <div className={inputWrapper}>
-              <UserCircle className={iconClass} />
-              <input
-                type="text"
-                value={fullName}
-                className={inputClass}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Full Name"
-                required
-              />
-            </div>
-            <div className={inputWrapper}>
-              <Mail className={iconClass} />
-              <input
-                type="email"
-                value={email}
-                className={inputClass}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-                required
-              />
-            </div>
-          </>
-        )}
-
-        <div className={inputWrapper}>
-          <Lock className={iconClass} />
-          <input
-            type={showPassword ? "text" : "password"}
-            value={password1}
-            onChange={(e) => setPassword1(e.target.value)}
-            className={`${inputClass} pr-12`}
-            placeholder="Secret Phrase"
-            required
-          />
           <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-3 text-slate-500 hover:text-[#c5a059] transition-colors cursor-pointer"
+            onClick={() => switchMode("login")}
+            className="font-mono text-xs text-[#6b6b67] hover:text-[#a8a6a0] transition-colors tracking-wide"
           >
-            {showPassword ? (
-              <EyeOff className="w-5 h-5" />
-            ) : (
-              <Eye className="w-5 h-5" />
-            )}
+            Back to login →
           </button>
         </div>
+      </Page>
+    );
+  }
 
-        {method === "signup" && (
-          <div className={inputWrapper}>
-            <Lock className={iconClass} />
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password2}
-              onChange={(e) => setPassword2(e.target.value)}
-              className={inputClass}
-              placeholder="Confirm Secret Phrase"
-              required
-            />
+  return (
+    <Page>
+      <Logo />
+      <p className="font-mono text-[0.68rem] text-[#6b6b67] tracking-widest mb-8">
+        // find what to cook, tonight
+      </p>
+
+      {/* Tabs */}
+      <div className="flex border-b border-[#2e2e2b] mb-7">
+        {["login", "register"].map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => switchMode(m)}
+            className={[
+              "px-5 py-2.5 text-sm font-sans -mb-px border-b-2 transition-colors duration-150",
+              mode === m
+                ? "text-[#e8e6e0] border-[#d4a843]"
+                : "text-[#6b6b67] border-transparent hover:text-[#a8a6a0]",
+            ].join(" ")}
+          >
+            {m.charAt(0).toUpperCase() + m.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        <Field
+          label="username"
+          id="username"
+          type="text"
+          value={fields.username}
+          onChange={(v) => set("username", v)}
+          error={errors.username}
+          autoComplete="username"
+        />
+
+        {mode === "register" && (
+          <Field
+            label="email"
+            id="email"
+            type="email"
+            value={fields.email}
+            onChange={(v) => set("email", v)}
+            error={errors.email}
+            autoComplete="email"
+          />
+        )}
+
+        <Field
+          label="password"
+          id="password"
+          type="password"
+          value={fields.password}
+          onChange={(v) => set("password", v)}
+          error={errors.password}
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+        />
+
+        {mode === "register" && (
+          <Field
+            label="confirm password"
+            id="password2"
+            type="password"
+            value={fields.password2}
+            onChange={(v) => set("password2", v)}
+            error={errors.password2}
+            autoComplete="new-password"
+          />
+        )}
+
+        {errors.non_field_errors && (
+          <div className="bg-[#c0574a]/10 border border-[#c0574a]/30 text-[#c0574a] font-mono text-xs px-3.5 py-2.5 rounded-md tracking-wide">
+            {errors.non_field_errors}
           </div>
         )}
 
         <button
-          className="relative w-1/2 h-12 mt-6 rounded-lg font-serif tracking-[0.2em] uppercase text-xs font-bold bg-linear-to-b from-[#D4AF37] to-[#C5A059] text-[#0F1115] shadow-[0_4px_0_rgb(74,68,57)] hover:translate-y-0.5 active:translate-y-1 disabled:opacity-50 cursor-pointer transition-all"
           type="submit"
-          disabled={loading}
+          disabled={submitting}
+          className="mt-1 bg-[#d4a843] text-[#111110] font-mono text-[0.8rem] font-medium tracking-wider px-4 py-3 rounded-md hover:opacity-85 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
         >
-          {loading ? "Authorizing..." : name}
+          {submitting
+            ? "working..."
+            : mode === "login"
+              ? "Login →"
+              : "Create account →"}
         </button>
-
-        <p className="text-sm mt-8 text-slate-500 uppercase tracking-widest text-[10px]">
-          {method === "signup" ? "Member?" : "New?"}
-          <Link
-            to={method === "signup" ? "/login" : "/Register"}
-            className="text-[#C5A059] hover:text-[#D4AF37] italic font-serif ml-2 transition-colors"
-          >
-            {method === "signup" ? "Login" : "Register"}
-          </Link>
-        </p>
       </form>
+
+      {mode === "login" && (
+        <button
+          type="button"
+          className="mt-4 font-mono text-[0.72rem] text-[#6b6b67] hover:text-[#a8a6a0] transition-colors tracking-wide"
+        >
+          Forgot password?
+        </button>
+      )}
+    </Page>
+  );
+}
+
+// ── Shared layout ─────────────────────────────────────────────────────────────
+function Page({ children }) {
+  return (
+    <div className="min-h-screen bg-[#111110] flex items-center justify-center p-8">
+      <div className="w-full max-w-sm animate-fade-up">{children}</div>
     </div>
   );
 }
 
-export default Form;
+function Logo() {
+  return (
+    <div className="font-serif text-[2rem] text-[#e8e6e0] tracking-tight leading-none mb-1">
+      di<span className="text-[#d4a843] italic">sh</span>
+    </div>
+  );
+}
+
+// ── Field ─────────────────────────────────────────────────────────────────────
+function Field({ label, id, type, value, onChange, error, autoComplete }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label
+        htmlFor={id}
+        className="font-mono text-[0.65rem] text-[#6b6b67] uppercase tracking-widest"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        spellCheck={false}
+        className={[
+          "bg-[#1a1a18] border rounded-md px-3.5 py-2.5",
+          "text-[#e8e6e0] text-sm font-light font-sans",
+          "outline-none placeholder-[#3e3e3b]",
+          "transition-colors duration-150",
+          error
+            ? "border-[#c0574a] focus:border-[#c0574a]"
+            : "border-[#2e2e2b] focus:border-[#8a6e2a]",
+        ].join(" ")}
+      />
+      {error && (
+        <span className="font-mono text-[0.65rem] text-[#c0574a] tracking-wide">
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}

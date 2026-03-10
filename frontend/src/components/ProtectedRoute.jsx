@@ -1,52 +1,34 @@
-import { jwtDecode } from "jwt-decode";
-import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { ACCESS_TOKEN } from "../constants";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-function ProtectedRoute({ children, requiredRole, requiredLevel }) {
-  const [isAuthorized, setIsAuthorized] = useState(null);
+/**
+ * Wraps any route that requires auth.
+ * Redirects to /login and preserves the attempted path so the
+ * user lands back where they were after logging in.
+ *
+ * Usage in router:
+ *   <Route element={<ProtectedRoute />}>
+ *     <Route path="/discover" element={<Discover />} />
+ *     <Route path="/profile"  element={<Profile />} />
+ *   </Route>
+ */
+export default function ProtectedRoute() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem(ACCESS_TOKEN);
-      if (!token) {
-        setIsAuthorized(false);
-        return;
-      }
-      setIsAuthorized(true);
-    };
-    checkAuth();
-  }, []);
-
-  if (isAuthorized === null) return null;
-
-  const token = localStorage.getItem(ACCESS_TOKEN);
-  if (!token) return <Navigate to="/login" />;
-
-  const decoded = jwtDecode(token);
-
-  let userRole = decoded.role;
-  if (userRole === "TECHNICIAN") userRole = "TECH";
-
-  const userLevel =
-    decoded.tech_level || decoded.techlevel || decoded.tech_Rank;
-
-  console.log("SHIELD STATUS:", {
-    role: userRole,
-    level: userLevel,
-    reqRole: requiredRole,
-    reqLevel: requiredLevel,
-  });
-
-  if (requiredRole && userRole !== requiredRole) {
-    return <Navigate to="/" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#111110] flex items-center justify-center">
+        <span className="font-mono text-xs text-[#6b6b67] tracking-widest">
+          authenticating...
+        </span>
+      </div>
+    );
   }
 
-  if (requiredLevel && userLevel !== requiredLevel) {
-    return <Navigate to="/" />;
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  return children;
+  return <Outlet />;
 }
-
-export default ProtectedRoute;

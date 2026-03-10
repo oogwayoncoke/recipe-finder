@@ -66,9 +66,9 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "dj_rest_auth.registration",
     "rest_framework",
+    "rest_framework_simplejwt",
     "corsheaders",
     "authentication",
-    "shops",
     "phonenumber_field",
 ]
 SITE_ID = 1
@@ -153,6 +153,8 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = 'authentication.User'
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -182,7 +184,7 @@ CORS_ALLOWED_CREDENTIALS = True
 
 ACCOUNT_LOGIN_METHODS = {"email", "username"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
-ACCOUNT_ADAPTER = "authentication.adapter.AccountAdapter"
+ACCOUNT_ADAPTER = 'authentication.adapter.AccountAdapter'
 
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
