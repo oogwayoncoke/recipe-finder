@@ -9,14 +9,6 @@ from . import spoonacular
 
 
 class RecipeSearchView(APIView):
-    """
-    POST /recipes/search/
-    { "query": "pasta", "filters": {...} }
-    OR
-    { "ingredients": ["eggs", "tomato"], "filters": {...} }
-
-    Returns basic recipe data only (fast).
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -41,23 +33,18 @@ class RecipeSearchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Save to history
         History.objects.bulk_create(
             [History(user=request.user, recipe=r) for r in recipes],
             ignore_conflicts=True,
         )
 
-        serializer = RecipeBasicSerializer(recipes, many=True)
-        return Response({'results': serializer.data, 'total': total})
+        return Response({
+            'results': RecipeBasicSerializer(recipes, many=True).data,
+            'total':   total,
+        })
 
 
 class RecipeDetailView(APIView):
-    """
-    GET /recipes/<external_id>/
-    Returns full recipe data (ingredients + instructions).
-    Fetches from Spoonacular only if not already in DB.
-    Nutrition is fetched separately via Edamam on the frontend.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request, external_id):
@@ -69,5 +56,4 @@ class RecipeDetailView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        serializer = RecipeSerializer(recipe)
-        return Response(serializer.data)
+        return Response(RecipeSerializer(recipe).data)
