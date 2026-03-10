@@ -115,6 +115,11 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
+        
+        # Add these two lines
+        token['username'] = user.username
+        token['email']    = user.email
+        
         profile = getattr(user, 'profile', None)
         if profile:
             token['dietary_preferences'] = profile.get_dietary_list()

@@ -40,23 +40,27 @@ function SidebarItem({ children, active, onClick, checkbox }) {
     <button
       onClick={onClick}
       className={[
-        'flex items-center gap-2.5 w-full text-left px-4 py-2 text-[0.83rem] font-sans font-light transition-all border-l-2',
+        "flex items-center gap-2.5 w-full text-left px-4 py-2 text-[0.83rem] font-sans font-light transition-all border-l-2",
         active
-          ? 'text-[#d4a843] border-l-[#d4a843] bg-[#d4a843]/5'
-          : 'text-[#a8a6a0] border-l-transparent hover:text-[#e8e6e0] hover:bg-[#1a1a18]',
-      ].join(' ')}
+          ? "text-[#d4a843] border-l-[#d4a843] bg-[#d4a843]/5"
+          : "text-[#a8a6a0] border-l-transparent hover:text-[#e8e6e0] hover:bg-[#1a1a18]",
+      ].join(" ")}
     >
       {checkbox && (
-        <span className={[
-          'w-3.5 h-3.5 border rounded-sm flex items-center justify-center flex-shrink-0 transition-colors text-[0.5rem]',
-          active ? 'border-[#d4a843] bg-[#d4a843]/20 text-[#d4a843]' : 'border-[#3e3e3b]',
-        ].join(' ')}>
-          {active && '✓'}
+        <span
+          className={[
+            "w-3.5 h-3.5 border rounded-sm flex items-center justify-center shrink-0 transition-colors text-[0.5rem]",
+            active
+              ? "border-[#d4a843] bg-[#d4a843]/20 text-[#d4a843]"
+              : "border-[#3e3e3b]",
+          ].join(" ")}
+        >
+          {active && "✓"}
         </span>
       )}
       {children}
     </button>
-  )
+  );
 }
 
 export default function Sidebar({ filters, onChange }) {
@@ -75,44 +79,65 @@ export default function Sidebar({ filters, onChange }) {
   }
 
   return (
-    <aside className="w-[220px] flex-shrink-0 border-r border-[#2e2e2b] flex flex-col h-full overflow-y-auto bg-[#111110]">
+    <aside className="w-[220px] shrink-0 border-r border-[#2e2e2b] flex flex-col h-full overflow-y-auto bg-[#111110]">
       {/* Tabs */}
-      <div className="flex border-b border-[#2e2e2b] flex-shrink-0">
-        {[['filters', 'Filters'], ['settings', 'Settings']].map(([key, label]) => (
+      <div className="flex border-b border-[#2e2e2b] shrink-0">
+        {[
+          ["filters", "Filters"],
+          ["settings", "Settings"],
+        ].map(([key, label]) => (
           <button
             key={key}
             onClick={() => setSection(key)}
             className={[
-              'flex-1 py-3 font-mono text-[0.65rem] uppercase tracking-widest transition-colors border-b-2 -mb-px',
+              "flex-1 py-3 font-mono text-[0.65rem] uppercase tracking-widest transition-colors border-b-2 -mb-px",
               section === key
-                ? 'text-[#d4a843] border-[#d4a843]'
-                : 'text-[#6b6b67] border-transparent hover:text-[#a8a6a0]',
-            ].join(' ')}
+                ? "text-[#d4a843] border-[#d4a843]"
+                : "text-[#6b6b67] border-transparent hover:text-[#a8a6a0]",
+            ].join(" ")}
           >
             {label}
           </button>
         ))}
       </div>
 
-      {section === 'filters' && (
+      {section === "filters" && (
         <div className="flex flex-col py-2">
           <SidebarLabel>Time</SidebarLabel>
-          {[['any', 'Any time'], ['30', '< 30 min'], ['15', '< 15 min']].map(([val, label]) => (
-            <SidebarItem key={val} active={filters.maxTime === val} onClick={() => onChange({ ...filters, maxTime: val })}>
+          {[
+            ["any", "Any time"],
+            ["30", "< 30 min"],
+            ["15", "< 15 min"],
+          ].map(([val, label]) => (
+            <SidebarItem
+              key={val}
+              active={filters.maxTime === val}
+              onClick={() => onChange({ ...filters, maxTime: val })}
+            >
               {label}
             </SidebarItem>
           ))}
 
           <SidebarLabel>Diet</SidebarLabel>
           {DIETARY_FILTERS.map(({ slug, label }) => (
-            <SidebarItem key={slug} active={isOn('diet', slug)} onClick={() => toggleFilter('diet', slug)} checkbox>
+            <SidebarItem
+              key={slug}
+              active={isOn("diet", slug)}
+              onClick={() => toggleFilter("diet", slug)}
+              checkbox
+            >
               {label}
             </SidebarItem>
           ))}
 
           <SidebarLabel>Cuisine</SidebarLabel>
           {CUISINE_FILTERS.map(({ slug, label }) => (
-            <SidebarItem key={slug} active={isOn('cuisine', slug)} onClick={() => toggleFilter('cuisine', slug)} checkbox>
+            <SidebarItem
+              key={slug}
+              active={isOn("cuisine", slug)}
+              onClick={() => toggleFilter("cuisine", slug)}
+              checkbox
+            >
               {label}
             </SidebarItem>
           ))}
@@ -120,7 +145,14 @@ export default function Sidebar({ filters, onChange }) {
           {hasActiveFilters(filters) && (
             <div className="px-4 pt-3 pb-1">
               <button
-                onClick={() => onChange({ ...filters, maxTime: 'any', diet: [], cuisine: [] })}
+                onClick={() =>
+                  onChange({
+                    ...filters,
+                    maxTime: "any",
+                    diet: [],
+                    cuisine: [],
+                  })
+                }
                 className="font-mono text-[0.65rem] text-[#c0574a] hover:text-[#e8e6e0] transition-colors tracking-wide"
               >
                 ✕ clear filters
@@ -130,20 +162,38 @@ export default function Sidebar({ filters, onChange }) {
         </div>
       )}
 
-      {section === 'settings' && (
+      {section === "settings" && (
         <div className="flex flex-col py-2">
           <SidebarLabel>Display</SidebarLabel>
-          <SidebarItem active={filters.layout === 'grid'} onClick={() => onChange({ ...filters, layout: 'grid' })}>⊞ Grid</SidebarItem>
-          <SidebarItem active={filters.layout === 'list'} onClick={() => onChange({ ...filters, layout: 'list' })}>☰ List</SidebarItem>
+          <SidebarItem
+            active={filters.layout === "grid"}
+            onClick={() => onChange({ ...filters, layout: "grid" })}
+          >
+            ⊞ Grid
+          </SidebarItem>
+          <SidebarItem
+            active={filters.layout === "list"}
+            onClick={() => onChange({ ...filters, layout: "list" })}
+          >
+            ☰ List
+          </SidebarItem>
 
           <SidebarLabel>Results per page</SidebarLabel>
-          {[['12', '12'], ['24', '24'], ['48', '48']].map(([val, label]) => (
-            <SidebarItem key={val} active={filters.perPage === val} onClick={() => onChange({ ...filters, perPage: val })}>
+          {[
+            ["12", "12"],
+            ["24", "24"],
+            ["48", "48"],
+          ].map(([val, label]) => (
+            <SidebarItem
+              key={val}
+              active={filters.perPage === val}
+              onClick={() => onChange({ ...filters, perPage: val })}
+            >
               {label} recipes
             </SidebarItem>
           ))}
         </div>
       )}
     </aside>
-  )
+  );
 }

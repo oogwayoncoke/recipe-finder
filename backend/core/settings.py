@@ -71,7 +71,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "authentication",
-    "phonenumber_field",
+    "recipes"
 ]
 SITE_ID = 1
 MIDDLEWARE = [
@@ -190,3 +190,5 @@ ACCOUNT_ADAPTER = 'authentication.adapter.AccountAdapter'
 
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+SPOONACULAR_API_KEY = os.getenv("SPOONACULAR_API_KEY")
