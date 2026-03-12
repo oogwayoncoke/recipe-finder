@@ -1,10 +1,25 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+const DEBOUNCE_MS = 500;
 
 function getToken() {
   return localStorage.getItem("access") ?? "";
 }
+
+const inputStyle = {
+  flex: 1,
+  backgroundColor: "var(--bg-input)",
+  border: "1px solid var(--border)",
+  color: "var(--text)",
+  fontSize: "0.875rem",
+  fontWeight: 300,
+  fontFamily: '"DM Sans", sans-serif',
+  borderRadius: "0.375rem",
+  padding: "0.625rem 1rem",
+  outline: "none",
+  transition: "border-color 0.15s",
+};
 
 export default function SearchPanel({ filters, onResults, onLoading }) {
   const [tab, setTab] = useState("name");
@@ -12,6 +27,9 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
   const [ingredient, setIng] = useState("");
   const [ingredients, setIngs] = useState([]);
   const [error, setError] = useState(null);
+
+  const abortRef = useRef(null);
+  const debounceRef = useRef(null);
 
   function buildFilters() {
     const f = {};
@@ -23,8 +41,11 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
   }
 
   async function post(body) {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
     const res = await fetch(`${API}/recipes/search/`, {
       method: "POST",
+      signal: abortRef.current.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${getToken()}`,
@@ -38,14 +59,15 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
     return res.json();
   }
 
-  async function searchByName() {
-    if (!query.trim()) return;
+  async function searchByName(q = query) {
+    if (!q.trim()) return;
     setError(null);
     onLoading(true);
     try {
-      const data = await post({ query: query.trim() });
+      const data = await post({ query: q.trim() });
       onResults(data.results ?? [], data.total ?? 0);
     } catch (e) {
+      if (e.name === "AbortError") return;
       setError(e.message);
       onResults([], 0);
     } finally {
@@ -61,12 +83,35 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
       const data = await post({ ingredients });
       onResults(data.results ?? [], data.total ?? 0);
     } catch (e) {
+      if (e.name === "AbortError") return;
       setError(e.message);
       onResults([], 0);
     } finally {
       onLoading(false);
     }
   }
+
+  const debouncedSearch = useCallback(
+    (value) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (!value.trim()) return;
+      debounceRef.current = setTimeout(() => searchByName(value), DEBOUNCE_MS);
+    },
+    [filters],
+  );
+
+  function handleQueryChange(e) {
+    setQuery(e.target.value);
+    debouncedSearch(e.target.value);
+  }
+
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    },
+    [],
+  );
 
   function addIngredient() {
     const val = ingredient.trim().toLowerCase();
@@ -76,8 +121,15 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex border-b border-[#2e2e2b] mb-5">
+    <div style={{ marginBottom: "1.5rem" }}>
+      {/* Tabs */}
+      <div
+        style={{
+          display: "flex",
+          borderBottom: "1px solid var(--border)",
+          marginBottom: "1.25rem",
+        }}
+      >
         {[
           ["name", "By dish name"],
           ["ingredients", "By ingredients"],
@@ -85,12 +137,21 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={[
-              "px-5 py-2.5 text-sm font-sans -mb-px border-b-2 transition-colors",
-              tab === key
-                ? "text-[#e8e6e0] border-[#d4a843]"
-                : "text-[#6b6b67] border-transparent hover:text-[#a8a6a0]",
-            ].join(" ")}
+            style={{
+              padding: "0.625rem 1.25rem",
+              fontSize: "0.875rem",
+              fontFamily: '"DM Sans", sans-serif',
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              borderBottom:
+                tab === key
+                  ? "2px solid var(--accent)"
+                  : "2px solid transparent",
+              color: tab === key ? "var(--text)" : "var(--text-dim)",
+              marginBottom: "-1px",
+              transition: "color 0.15s",
+            }}
           >
             {label}
           </button>
@@ -98,23 +159,61 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
       </div>
 
       {error && (
-        <div className="mb-4 px-4 py-2.5 bg-[#c0574a]/10 border border-[#c0574a]/30 rounded-md font-mono text-[0.72rem] text-[#c0574a]">
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "0.625rem 1rem",
+            backgroundColor:
+              "color-mix(in srgb, var(--error) 10%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--error) 30%, transparent)",
+            borderRadius: "0.375rem",
+            fontFamily: '"DM Mono", monospace',
+            fontSize: "0.72rem",
+            color: "var(--error)",
+          }}
+        >
           {error}
         </div>
       )}
 
       {tab === "name" && (
-        <div className="flex gap-2">
+        <div style={{ display: "flex", gap: "0.5rem" }}>
           <input
-            className="flex-1 bg-[#1a1a18] border border-[#2e2e2b] focus:border-[#8a6e2a] text-[#e8e6e0] text-sm font-light placeholder-[#3e3e3b] rounded-md px-4 py-2.5 outline-none transition-colors"
+            style={inputStyle}
             placeholder="e.g. chicken shawarma, lentil soup…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchByName()}
+            onChange={handleQueryChange}
+            onFocus={(e) => (e.target.style.borderColor = "var(--accent-dim)")}
+            onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+                searchByName();
+              }
+            }}
           />
           <button
-            onClick={searchByName}
-            className="bg-[#d4a843] text-[#111110] font-mono text-[0.78rem] font-medium tracking-wider px-5 py-2.5 rounded-md hover:opacity-85 transition-opacity whitespace-nowrap"
+            onClick={() => {
+              if (debounceRef.current) clearTimeout(debounceRef.current);
+              searchByName();
+            }}
+            style={{
+              backgroundColor: "var(--accent)",
+              color: "#111110",
+              fontFamily: '"DM Mono", monospace',
+              fontSize: "0.78rem",
+              fontWeight: 500,
+              letterSpacing: "0.05em",
+              padding: "0.625rem 1.25rem",
+              borderRadius: "0.375rem",
+              border: "none",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
           >
             Search →
           </button>
@@ -122,11 +221,39 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
       )}
 
       {tab === "ingredients" && (
-        <div className="flex flex-col gap-3">
-          <div className="bg-[#1a1a18] border border-[#2e2e2b] focus-within:border-[#8a6e2a] rounded-md px-4 py-3 transition-colors">
-            <div className="flex items-center gap-2 mb-2.5">
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--bg-input)",
+              border: "1px solid var(--border)",
+              borderRadius: "0.375rem",
+              padding: "0.75rem 1rem",
+              transition: "border-color 0.15s",
+            }}
+            onFocusCapture={(e) =>
+              (e.currentTarget.style.borderColor = "var(--accent-dim)")
+            }
+            onBlurCapture={(e) =>
+              (e.currentTarget.style.borderColor = "var(--border)")
+            }
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                marginBottom: ingredients.length ? "0.625rem" : 0,
+              }}
+            >
               <input
-                className="flex-1 bg-transparent text-[#e8e6e0] text-sm font-light placeholder-[#3e3e3b] outline-none"
+                style={{
+                  ...inputStyle,
+                  border: "none",
+                  padding: 0,
+                  backgroundColor: "transparent",
+                }}
                 placeholder="Add ingredient and press Enter…"
                 value={ingredient}
                 onChange={(e) => setIng(e.target.value)}
@@ -136,22 +263,67 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
               />
               <button
                 onClick={addIngredient}
-                className="w-6 h-6 bg-[#222220] border border-[#3e3e3b] hover:border-[#d4a843] hover:text-[#d4a843] text-[#6b6b67] rounded flex items-center justify-center text-sm transition-colors"
+                style={{
+                  width: "1.5rem",
+                  height: "1.5rem",
+                  flexShrink: 0,
+                  backgroundColor: "var(--bg-hover)",
+                  border: "1px solid var(--border-2)",
+                  borderRadius: "0.25rem",
+                  color: "var(--text-dim)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.875rem",
+                  transition: "all 0.1s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--accent)";
+                  e.currentTarget.style.color = "var(--accent)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border-2)";
+                  e.currentTarget.style.color = "var(--text-dim)";
+                }}
               >
                 +
               </button>
             </div>
             {ingredients.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div
+                style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem" }}
+              >
                 {ingredients.map((ing) => (
                   <span
                     key={ing}
-                    className="flex items-center gap-1 bg-[#d4a843]/10 border border-[#d4a843]/40 text-[#d4a843] font-mono text-[0.7rem] px-2 py-0.5 rounded-sm"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.25rem",
+                      backgroundColor:
+                        "color-mix(in srgb, var(--accent) 10%, transparent)",
+                      border:
+                        "1px solid color-mix(in srgb, var(--accent) 40%, transparent)",
+                      color: "var(--accent)",
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: "0.7rem",
+                      padding: "0.125rem 0.5rem",
+                      borderRadius: "0.125rem",
+                    }}
                   >
                     {ing}
                     <button
                       onClick={() => setIngs((p) => p.filter((i) => i !== ing))}
-                      className="hover:text-[#c0574a] transition-colors leading-none"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "inherit",
+                        opacity: 0.7,
+                        lineHeight: 1,
+                        padding: 0,
+                      }}
                     >
                       ×
                     </button>
@@ -160,11 +332,24 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
               </div>
             )}
           </div>
-          <div className="flex justify-end">
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
               onClick={searchByIngredients}
               disabled={!ingredients.length}
-              className="bg-[#d4a843] text-[#111110] font-mono text-[0.78rem] font-medium tracking-wider px-5 py-2.5 rounded-md hover:opacity-85 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+              style={{
+                backgroundColor: "var(--accent)",
+                color: "#111110",
+                fontFamily: '"DM Mono", monospace',
+                fontSize: "0.78rem",
+                fontWeight: 500,
+                letterSpacing: "0.05em",
+                padding: "0.625rem 1.25rem",
+                borderRadius: "0.375rem",
+                border: "none",
+                cursor: "pointer",
+                opacity: ingredients.length ? 1 : 0.3,
+                transition: "opacity 0.15s",
+              }}
             >
               Find recipes →
             </button>

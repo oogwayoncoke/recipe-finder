@@ -33,13 +33,9 @@ class ConfirmEmailView(APIView):
             user = email_address.user
             user.is_active = True
             user.save()
-            return Response(
-                {"message": "Identity Verified"}, status=status.HTTP_200_OK
-            )
+            return Response({'message': 'Identity Verified'}, status=status.HTTP_200_OK)
 
-        return Response(
-            {"error": "Confirmation failed"}, status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': 'Confirmation failed'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class MyTokenObtainPairView(TokenObtainPairView):

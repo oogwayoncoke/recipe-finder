@@ -3,9 +3,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import History
+from .models import Recipe, History
 from .serializers import RecipeSerializer, RecipeBasicSerializer
 from . import spoonacular
+
+
+class RecipeListView(APIView):
+    """GET /recipes/ — returns latest seeded/cached recipes, no external API call."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        limit   = int(request.query_params.get('limit', 12))
+        recipes = Recipe.objects.order_by('-id')[:limit]
+        return Response({
+            'results': RecipeBasicSerializer(recipes, many=True).data,
+            'total':   Recipe.objects.count(),
+        })
 
 
 class RecipeSearchView(APIView):

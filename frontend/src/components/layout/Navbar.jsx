@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { dark, toggle } = useTheme();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -26,58 +28,194 @@ export default function Navbar() {
   const username = user?.username ?? "guest";
 
   return (
-    <nav className="h-14 border-b border-[#2e2e2b] flex items-center justify-between px-6 bg-[#111110] sticky top-0 z-50 flex-shrink-0">
+    <nav
+      style={{
+        height: "3.5rem",
+        borderBottom: "1px solid var(--border)",
+        backgroundColor: "var(--bg)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 1.5rem",
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        flexShrink: 0,
+      }}
+    >
       {/* Logo */}
-      <div className="font-serif text-[1.4rem] text-[#e8e6e0] tracking-tight leading-none">
-        di<span className="text-[#d4a843] italic">sh</span>
+      <div
+        style={{
+          fontFamily: '"DM Serif Display", serif',
+          fontSize: "1.4rem",
+          color: "var(--text)",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        di
+        <span style={{ color: "var(--accent)", fontStyle: "italic" }}>sh</span>
       </div>
 
-      {/* Right — user menu */}
-      <div className="relative" ref={menuRef}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        {/* Theme toggle */}
         <button
-          onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-2 font-mono text-[0.78rem] text-[#a8a6a0] hover:text-[#e8e6e0] transition-colors tracking-wide"
+          onClick={toggle}
+          title={dark ? "Switch to light mode" : "Switch to dark mode"}
+          style={{
+            width: "2rem",
+            height: "2rem",
+            borderRadius: "0.375rem",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-hover)",
+            color: "var(--text-dim)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.85rem",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.color = "var(--text-dim)")
+          }
         >
-          <span className="w-6 h-6 rounded-full bg-[#2e2e2b] border border-[#3e3e3b] flex items-center justify-center text-[0.65rem] text-[#d4a843] font-medium">
-            {initial}
-          </span>
-          {username}
-          <span
-            className={`text-[0.6rem] transition-transform duration-150 ${menuOpen ? "rotate-180" : ""}`}
-          >
-            ▾
-          </span>
+          {dark ? "☀" : "☾"}
         </button>
 
-        {menuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-44 bg-[#1a1a18] border border-[#2e2e2b] rounded-md overflow-hidden shadow-xl animate-fade-up z-50">
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                navigate("/profile");
+        {/* User menu */}
+        <div style={{ position: "relative" }} ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              fontFamily: '"DM Mono", monospace',
+              fontSize: "0.78rem",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              background: "none",
+              border: "none",
+              transition: "color 0.15s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text)")}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = "var(--text-muted)")
+            }
+          >
+            <span
+              style={{
+                width: "1.5rem",
+                height: "1.5rem",
+                borderRadius: "50%",
+                backgroundColor: "var(--bg-hover)",
+                border: "1px solid var(--border-2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "0.65rem",
+                color: "var(--accent)",
+                fontWeight: 500,
               }}
-              className="w-full text-left px-4 py-2.5 font-mono text-[0.75rem] text-[#a8a6a0] hover:bg-[#222220] hover:text-[#e8e6e0] transition-colors"
             >
-              Profile
-            </button>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                navigate("/settings");
+              {initial}
+            </span>
+            {username}
+            <span
+              style={{
+                fontSize: "0.6rem",
+                transition: "transform 0.15s",
+                transform: menuOpen ? "rotate(180deg)" : "none",
               }}
-              className="w-full text-left px-4 py-2.5 font-mono text-[0.75rem] text-[#a8a6a0] hover:bg-[#222220] hover:text-[#e8e6e0] transition-colors"
             >
-              Settings
-            </button>
-            <div className="border-t border-[#2e2e2b]" />
-            <button
-              onClick={handleLogout}
-              className="w-full text-left px-4 py-2.5 font-mono text-[0.75rem] text-[#c0574a] hover:bg-[#c0574a]/10 transition-colors"
+              ▾
+            </span>
+          </button>
+
+          {menuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: "100%",
+                marginTop: "0.5rem",
+                width: "11rem",
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "0.375rem",
+                overflow: "hidden",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                zIndex: 50,
+              }}
             >
-              Logout
-            </button>
-          </div>
-        )}
+              {[
+                {
+                  label: "Profile",
+                  path: "/profile",
+                  color: "var(--text-muted)",
+                },
+                {
+                  label: "Settings",
+                  path: "/settings",
+                  color: "var(--text-muted)",
+                },
+              ].map(({ label, path, color }) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate(path);
+                  }}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "0.625rem 1rem",
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: "0.75rem",
+                    color,
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "var(--bg-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+              <div style={{ borderTop: "1px solid var(--border)" }} />
+              <button
+                onClick={handleLogout}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "0.625rem 1rem",
+                  fontFamily: '"DM Mono", monospace',
+                  fontSize: "0.75rem",
+                  color: "var(--error)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "var(--bg-hover)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   );

@@ -101,3 +101,4 @@ class History(models.Model):
     class Meta:
         db_table = 'history'
         ordering = ['-viewed_at']
+    

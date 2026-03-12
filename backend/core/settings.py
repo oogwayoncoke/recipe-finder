@@ -15,6 +15,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
+import dotenv
 
 load_dotenv()
 
@@ -66,6 +67,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    'allauth.socialaccount.providers.google',
     "dj_rest_auth.registration",
     "rest_framework",
     "rest_framework_simplejwt",
@@ -192,3 +194,16 @@ ACCOUNT_ADAPTER = 'authentication.adapter.AccountAdapter'
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 SPOONACULAR_API_KEY = os.getenv("SPOONACULAR_API_KEY")
+GOOGLE_CLIENT_ID     = os.getenv('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': GOOGLE_CLIENT_ID,
+            'secret':    GOOGLE_CLIENT_SECRET,
+            'key':       '',
+        },
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+    }
+}

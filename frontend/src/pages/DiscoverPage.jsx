@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import Navbar from '../components/layout/Navbar'
-import Sidebar from '../components/layout/Sidebar'
+import { useEffect, useState } from "react";
+import Navbar from "../components/layout/Navbar";
+import Sidebar from "../components/layout/Sidebar";
 import RecipeGrid from "../components/recipe/RecipeGrid";
-import SearchPanel from '../components/search/SearchPanel'
+import SearchPanel from "../components/search/SearchPanel";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
 
@@ -24,43 +24,112 @@ export default function DiscoverPage() {
   const [selected, setSelected] = useState(null);
   const [detailLoading, setDL] = useState(false);
 
+  // Load DB recipes on mount — no external API call
+  useEffect(() => {
+    async function loadInitial() {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/recipes/?limit=12`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("access")}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setRecipes(data.results ?? []);
+          setTotal(data.total ?? 0);
+        }
+      } catch {
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadInitial();
+  }, []);
+
   async function handleCardClick(recipe) {
-    // Show modal immediately with basic data, then load full details
     setSelected(recipe);
     setDL(true);
     try {
       const res = await fetch(`${API}/recipes/${recipe.external_id}/`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("access")}` },
       });
-      if (res.ok) {
-        const full = await res.json();
-        setSelected(full);
-      }
+      if (res.ok) setSelected(await res.json());
     } catch {
-      /* keep basic data */
     } finally {
       setDL(false);
     }
   }
 
+  const activePills = [
+    ...(filters.diet ?? []).map((d) => ({
+      label: d,
+      remove: () =>
+        setFilters((f) => ({ ...f, diet: f.diet.filter((x) => x !== d) })),
+    })),
+    ...(filters.cuisine ?? []).map((c) => ({
+      label: c,
+      remove: () =>
+        setFilters((f) => ({
+          ...f,
+          cuisine: f.cuisine.filter((x) => x !== c),
+        })),
+    })),
+    filters.maxTime !== "any" && {
+      label: `< ${filters.maxTime} min`,
+      remove: () => setFilters((f) => ({ ...f, maxTime: "any" })),
+    },
+  ].filter(Boolean);
+
   return (
-    <div className="min-h-screen bg-[#111110] flex flex-col">
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "var(--bg)",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <Navbar />
-
-      <div className="flex flex-1 overflow-hidden">
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar filters={filters} onChange={setFilters} />
-
-        <main className="flex-1 overflow-y-auto px-8 py-6 max-w-5xl">
-          <div className="mb-6 animate-fade-up">
-            <h1 className="font-serif text-[1.9rem] text-[#e8e6e0] leading-tight mb-0.5">
+        <main
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "1.5rem 2rem",
+            maxWidth: "64rem",
+          }}
+        >
+          {/* Header */}
+          <div style={{ marginBottom: "1.5rem" }} className="animate-fade-up">
+            <h1
+              style={{
+                fontFamily: '"DM Serif Display", serif',
+                fontSize: "1.9rem",
+                color: "var(--text)",
+                lineHeight: 1.2,
+                marginBottom: "0.25rem",
+              }}
+            >
               Find your next{" "}
-              <span className="text-[#d4a843] italic">dish.</span>
+              <span style={{ color: "var(--accent)", fontStyle: "italic" }}>
+                dish.
+              </span>
             </h1>
-            <p className="font-mono text-[0.68rem] text-[#6b6b67] tracking-widest">
+            <p
+              style={{
+                fontFamily: '"DM Mono", monospace',
+                fontSize: "0.68rem",
+                color: "var(--text-dim)",
+                letterSpacing: "0.1em",
+              }}
+            >
               // search by name or drop ingredients below
             </p>
           </div>
 
+          {/* Search */}
           <div className="animate-fade-up" style={{ animationDelay: "0.05s" }}>
             <SearchPanel
               filters={filters}
@@ -72,13 +141,60 @@ export default function DiscoverPage() {
             />
           </div>
 
-          <ActiveFilters filters={filters} onChange={setFilters} />
+          {/* Active filter pills */}
+          {activePills.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.375rem",
+                marginBottom: "1.25rem",
+              }}
+            >
+              {activePills.map((pill, i) => (
+                <span
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    backgroundColor:
+                      "color-mix(in srgb, var(--accent) 10%, transparent)",
+                    border:
+                      "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                    color: "var(--accent)",
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: "0.68rem",
+                    padding: "0.125rem 0.5rem",
+                    borderRadius: "0.125rem",
+                  }}
+                >
+                  {pill.label}
+                  <button
+                    onClick={pill.remove}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "inherit",
+                      padding: 0,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
+          {/* Grid */}
           <div className="animate-fade-up" style={{ animationDelay: "0.1s" }}>
             <RecipeGrid
               recipes={recipes}
               loading={loading}
-              total={total ?? 0}
+              stale={loading && recipes.length > 0}
+              total={total}
               layout={filters.layout}
               onCardClick={handleCardClick}
             />
@@ -97,76 +213,112 @@ export default function DiscoverPage() {
   );
 }
 
-// ── Active filter pills ───────────────────────────────────────────────────────
-function ActiveFilters({ filters, onChange }) {
-  const pills = [
-    ...(filters.diet ?? []).map((d) => ({
-      label: d,
-      remove: () =>
-        onChange({ ...filters, diet: filters.diet.filter((x) => x !== d) }),
-    })),
-    ...(filters.cuisine ?? []).map((c) => ({
-      label: c,
-      remove: () =>
-        onChange({
-          ...filters,
-          cuisine: filters.cuisine.filter((x) => x !== c),
-        }),
-    })),
-    filters.maxTime !== "any" && {
-      label: `< ${filters.maxTime} min`,
-      remove: () => onChange({ ...filters, maxTime: "any" }),
-    },
-  ].filter(Boolean);
-
-  if (!pills.length) return null;
-
-  return (
-    <div className="flex flex-wrap gap-1.5 mb-5">
-      {pills.map((pill, i) => (
-        <span
-          key={i}
-          className="flex items-center gap-1 bg-[#d4a843]/10 border border-[#d4a843]/30 text-[#d4a843] font-mono text-[0.68rem] px-2 py-0.5 rounded-sm"
-        >
-          {pill.label}
-          <button
-            onClick={pill.remove}
-            className="hover:text-[#c0574a] transition-colors leading-none"
-          >
-            ×
-          </button>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-// ── Recipe detail modal ───────────────────────────────────────────────────────
 function RecipeModal({ recipe, loading, onClose }) {
-  const nutrition = recipe.nutrition ?? {};
-
   return (
     <div
-      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 animate-fade-up"
       onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(0,0,0,0.75)",
+        zIndex: 50,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        padding: "0",
+      }}
+      className="animate-fade-up"
     >
-      <div className="bg-[#1a1a18] border border-[#2e2e2b] rounded-lg w-full max-w-xl max-h-[80vh] overflow-y-auto">
+      <style>{`
+        @media (min-width: 640px) {
+          .recipe-modal-sheet {
+            align-self: center !important;
+            border-radius: 0.5rem !important;
+            max-width: 36rem !important;
+            max-height: 85vh !important;
+            margin: 1.5rem !important;
+          }
+        }
+      `}</style>
+      <div
+        className="recipe-modal-sheet"
+        style={{
+          backgroundColor: "var(--bg-card)",
+          border: "1px solid var(--border)",
+          borderRadius: "1rem 1rem 0 0", // bottom sheet on mobile
+          width: "100%",
+          maxHeight: "92vh",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {/* Drag handle (mobile visual cue) */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "0.625rem 0 0.25rem",
+          }}
+        >
+          <div
+            style={{
+              width: "2.5rem",
+              height: "0.25rem",
+              borderRadius: "999px",
+              backgroundColor: "var(--border-2)",
+            }}
+          />
+        </div>
+
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 p-5 border-b border-[#2e2e2b]">
-          <h2 className="font-serif text-xl text-[#e8e6e0] leading-snug">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "1rem",
+            padding: "0.75rem 1.25rem 1rem",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: '"DM Serif Display", serif',
+              fontSize: "1.25rem",
+              color: "var(--text)",
+              lineHeight: 1.3,
+            }}
+          >
             {recipe.title}
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 bg-[#222220] border border-[#2e2e2b] hover:border-[#6b6b67] text-[#6b6b67] hover:text-[#e8e6e0] rounded flex items-center justify-center shrink-0 transition-all font-mono text-sm"
+            style={{
+              width: "2.5rem",
+              height: "2.5rem",
+              flexShrink: 0, // bigger tap target
+              backgroundColor: "var(--bg-hover)",
+              border: "1px solid var(--border)",
+              borderRadius: "50%",
+              cursor: "pointer",
+              color: "var(--text-dim)",
+              fontFamily: '"DM Mono", monospace',
+              fontSize: "0.875rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.1s",
+            }}
           >
             ✕
           </button>
         </div>
 
-        <div className="p-5">
-          {/* Meta row */}
-          <div className="flex gap-6 mb-5">
+        <div style={{ padding: "1.25rem" }}>
+          {/* Meta */}
+          <div
+            style={{ display: "flex", gap: "1.5rem", marginBottom: "1.25rem" }}
+          >
             {[
               [
                 "Time",
@@ -177,10 +329,25 @@ function RecipeModal({ recipe, loading, onClose }) {
               ["Servings", recipe.servings ?? "—"],
             ].map(([label, val]) => (
               <div key={label}>
-                <div className="font-mono text-[0.6rem] text-[#6b6b67] uppercase tracking-widest mb-0.5">
+                <div
+                  style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: "0.6rem",
+                    color: "var(--text-dim)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    marginBottom: "0.125rem",
+                  }}
+                >
                   {label}
                 </div>
-                <div className="font-mono text-[0.85rem] text-[#d4a843]">
+                <div
+                  style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: "0.85rem",
+                    color: "var(--accent)",
+                  }}
+                >
                   {val}
                 </div>
               </div>
@@ -189,11 +356,26 @@ function RecipeModal({ recipe, loading, onClose }) {
 
           {/* Tags */}
           {(recipe.tags ?? []).length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-5">
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.25rem",
+                marginBottom: "1.25rem",
+              }}
+            >
               {recipe.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="font-mono text-[0.62rem] text-[#6b6b67] bg-[#222220] border border-[#2e2e2b] px-1.5 py-0.5 rounded-sm"
+                  style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: "0.62rem",
+                    color: "var(--text-dim)",
+                    backgroundColor: "var(--bg-hover)",
+                    border: "1px solid var(--border)",
+                    padding: "0.125rem 0.375rem",
+                    borderRadius: "0.125rem",
+                  }}
                 >
                   {tag}
                 </span>
@@ -201,36 +383,79 @@ function RecipeModal({ recipe, loading, onClose }) {
             </div>
           )}
 
-          {/* Loading skeleton for detail sections */}
           {loading ? (
-            <div className="flex flex-col gap-3 animate-pulse">
-              <div className="h-2.5 bg-[#222220] rounded w-1/4 mb-2" />
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-2 bg-[#222220] rounded w-full" />
-              ))}
-              <div className="h-2.5 bg-[#222220] rounded w-1/4 mt-3 mb-2" />
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-2 bg-[#222220] rounded w-3/4" />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
+              }}
+              className="animate-pulse"
+            >
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: "0.5rem",
+                    backgroundColor: "var(--bg-hover)",
+                    borderRadius: "0.25rem",
+                    width: `${60 + (i % 3) * 15}%`,
+                  }}
+                />
               ))}
             </div>
           ) : (
             <>
-              {/* Ingredients */}
               {(recipe.ingredients ?? []).length > 0 && (
                 <>
-                  <div className="font-mono text-[0.65rem] uppercase tracking-widest text-[#6b6b67] mb-3">
+                  <div
+                    style={{
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: "0.65rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "var(--text-dim)",
+                      marginBottom: "0.75rem",
+                    }}
+                  >
                     Ingredients
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4 mb-5">
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "0 1rem",
+                      marginBottom: "1.25rem",
+                    }}
+                  >
                     {recipe.ingredients.map((ing, i) => (
                       <div
                         key={i}
-                        className="flex items-baseline gap-1.5 border-b border-[#222220] py-1.5"
+                        style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: "0.375rem",
+                          borderBottom: "1px solid var(--bg-hover)",
+                          padding: "0.375rem 0",
+                        }}
                       >
-                        <span className="font-mono text-[0.68rem] text-[#d4a843] shrink-0">
+                        <span
+                          style={{
+                            fontFamily: '"DM Mono", monospace',
+                            fontSize: "0.68rem",
+                            color: "var(--accent)",
+                            flexShrink: 0,
+                          }}
+                        >
                           {ing.amount ? `${ing.amount} ${ing.unit}`.trim() : ""}
                         </span>
-                        <span className="text-[0.82rem] text-[#a8a6a0] font-light">
+                        <span
+                          style={{
+                            fontSize: "0.82rem",
+                            color: "var(--text-muted)",
+                            fontWeight: 300,
+                          }}
+                        >
                           {ing.name}
                         </span>
                       </div>
@@ -238,20 +463,48 @@ function RecipeModal({ recipe, loading, onClose }) {
                   </div>
                 </>
               )}
-
-              {/* Instructions */}
               {(recipe.instructions ?? []).length > 0 && (
                 <>
-                  <div className="font-mono text-[0.65rem] uppercase tracking-widest text-[#6b6b67] mb-3">
+                  <div
+                    style={{
+                      fontFamily: '"DM Mono", monospace',
+                      fontSize: "0.65rem",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: "var(--text-dim)",
+                      marginBottom: "0.75rem",
+                    }}
+                  >
                     Steps
                   </div>
-                  <div className="flex flex-col gap-3">
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                    }}
+                  >
                     {recipe.instructions.map((step) => (
                       <div
                         key={step.step_num}
-                        className="flex gap-3 text-sm text-[#a8a6a0] font-light leading-relaxed"
+                        style={{
+                          display: "flex",
+                          gap: "0.75rem",
+                          fontSize: "0.875rem",
+                          color: "var(--text-muted)",
+                          fontWeight: 300,
+                          lineHeight: 1.6,
+                        }}
                       >
-                        <span className="font-mono text-[0.68rem] text-[#8a6e2a] shrink-0 mt-0.5">
+                        <span
+                          style={{
+                            fontFamily: '"DM Mono", monospace',
+                            fontSize: "0.68rem",
+                            color: "var(--accent-dim)",
+                            flexShrink: 0,
+                            marginTop: "0.125rem",
+                          }}
+                        >
                           {String(step.step_num).padStart(2, "0")}
                         </span>
                         <span>{step.description}</span>
@@ -260,10 +513,16 @@ function RecipeModal({ recipe, loading, onClose }) {
                   </div>
                 </>
               )}
-
-              {/* Fallback for mock data */}
               {!recipe.ingredients && !recipe.instructions && (
-                <p className="font-mono text-[0.72rem] text-[#6b6b67] text-center py-6">
+                <p
+                  style={{
+                    fontFamily: '"DM Mono", monospace',
+                    fontSize: "0.72rem",
+                    color: "var(--text-dim)",
+                    textAlign: "center",
+                    padding: "1.5rem 0",
+                  }}
+                >
                   Full details available after a real search.
                 </p>
               )}

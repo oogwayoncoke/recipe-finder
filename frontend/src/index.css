@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --bg:        #111110;
+  --bg-card:   #1a1a18;
+  --bg-input:  #1a1a18;
+  --bg-hover:  #222220;
+  --border:    #2e2e2b;
+  --border-2:  #3e3e3b;
+  --text:      #e8e6e0;
+  --text-muted:#a8a6a0;
+  --text-dim:  #6b6b67;
+  --accent:    #d4a843;
+  --accent-dim:#8a6e2a;
+  --error:     #c0574a;
+  --success:   #5a8a5a;
+}
+
+.light {
+  --bg:        #f5f4f0;
+  --bg-card:   #ffffff;
+  --bg-input:  #ffffff;
+  --bg-hover:  #f0ede6;
+  --border:    #e0ddd6;
+  --border-2:  #ccc9c0;
+  --text:      #1a1a18;
+  --text-muted:#4a4a46;
+  --text-dim:  #8a8a86;
+  --accent:    #b8892e;
+  --accent-dim:#8a6e2a;
+  --error:     #b04030;
+  --success:   #3a6a3a;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}

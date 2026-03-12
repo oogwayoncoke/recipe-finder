@@ -48,53 +48,107 @@ const MOCK_RECIPES = [
 export default function RecipeGrid({
   recipes,
   loading,
+  stale,
   total,
   layout = "grid",
   onCardClick,
 }) {
-  const isMock = recipes.length === 0 && total === 0;
+  const isMock = recipes.length === 0 && total === null;
   const items = isMock ? MOCK_RECIPES : recipes;
 
-  if (loading) return <LoadingGrid />;
+  if (loading && !stale) return <LoadingGrid />;
+
+  const gridStyle =
+    layout === "list"
+      ? { display: "flex", flexDirection: "column", gap: "0.75rem" }
+      : {
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+          gap: "1rem",
+        };
 
   return (
     <div>
       {/* Divider label */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex-1 h-px bg-[#2e2e2b]" />
-        <span className="font-mono text-[0.68rem] text-[#6b6b67] tracking-widest">
-          {isMock ? "trending recipes" : `${total} results`}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          marginBottom: "1.25rem",
+        }}
+      >
+        <div
+          style={{ flex: 1, height: "1px", backgroundColor: "var(--border)" }}
+        />
+        <span
+          style={{
+            fontFamily: '"DM Mono", monospace',
+            fontSize: "0.68rem",
+            color: "var(--text-dim)",
+            letterSpacing: "0.1em",
+          }}
+        >
+          {loading
+            ? "loading…"
+            : isMock
+              ? "no recipes yet"
+              : `${total} recipes`}
         </span>
-        <div className="flex-1 h-px bg-[#2e2e2b]" />
+        <div
+          style={{ flex: 1, height: "1px", backgroundColor: "var(--border)" }}
+        />
       </div>
 
-      {/* No results state */}
       {!isMock && items.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-4xl mb-3 opacity-20">🍽</div>
-          <p className="font-serif text-lg text-[#a8a6a0] mb-1">
+        <div style={{ textAlign: "center", padding: "4rem 0" }}>
+          <div
+            style={{
+              fontSize: "2.5rem",
+              marginBottom: "0.75rem",
+              opacity: 0.2,
+            }}
+          >
+            🍽
+          </div>
+          <p
+            style={{
+              fontFamily: '"DM Serif Display", serif',
+              fontSize: "1.125rem",
+              color: "var(--text-muted)",
+              marginBottom: "0.25rem",
+            }}
+          >
             No recipes found
           </p>
-          <p className="font-mono text-[0.72rem] text-[#6b6b67]">
+          <p
+            style={{
+              fontFamily: '"DM Mono", monospace',
+              fontSize: "0.72rem",
+              color: "var(--text-dim)",
+            }}
+          >
             try different ingredients or filters
           </p>
         </div>
       ) : (
         <div
-          className={
-            layout === "list"
-              ? "flex flex-col gap-3"
-              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-          }
+          style={{
+            opacity: stale ? 0.4 : 1,
+            pointerEvents: stale ? "none" : "auto",
+            transition: "opacity 0.2s",
+          }}
         >
-          {items.map((recipe, i) => (
-            <RecipeCard
-              key={recipe.id}
-              recipe={recipe}
-              index={i}
-              onClick={() => onCardClick?.(recipe)}
-            />
-          ))}
+          <div style={gridStyle}>
+            {items.map((recipe, i) => (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                index={i}
+                onClick={() => onCardClick?.(recipe)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -103,20 +157,49 @@ export default function RecipeGrid({
 
 function LoadingGrid() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+        gap: "1rem",
+      }}
+    >
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="bg-[#1a1a18] border border-[#2e2e2b] rounded-md overflow-hidden animate-pulse"
+          style={{
+            backgroundColor: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: "0.375rem",
+            overflow: "hidden",
+          }}
+          className="animate-pulse"
         >
-          <div className="h-36 bg-[#222220]" />
-          <div className="p-3.5 flex flex-col gap-2">
-            <div className="h-3 bg-[#222220] rounded w-3/4" />
-            <div className="h-2.5 bg-[#222220] rounded w-1/2" />
-            <div className="flex gap-1 mt-1">
-              <div className="h-2 bg-[#222220] rounded w-14" />
-              <div className="h-2 bg-[#222220] rounded w-12" />
-            </div>
+          <div style={{ height: "9rem", backgroundColor: "var(--bg-hover)" }} />
+          <div
+            style={{
+              padding: "0.875rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+            }}
+          >
+            <div
+              style={{
+                height: "0.75rem",
+                backgroundColor: "var(--bg-hover)",
+                borderRadius: "0.25rem",
+                width: "75%",
+              }}
+            />
+            <div
+              style={{
+                height: "0.625rem",
+                backgroundColor: "var(--bg-hover)",
+                borderRadius: "0.25rem",
+                width: "50%",
+              }}
+            />
           </div>
         </div>
       ))}

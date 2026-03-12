@@ -1,8 +1,9 @@
 """
 Spoonacular API client.
-DB-first: checks local DB before hitting the API.
+DB-first + parallel API calls via ThreadPoolExecutor.
 """
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from django.conf import settings
 from .models import Recipe, Instructions, Ingredient, RecipeIngredient, Tag, RecipeTag
 
@@ -89,17 +90,42 @@ def _persist_full(recipe: Recipe, data: dict) -> Recipe:
     return recipe
 
 
+# ── Parallel fetch helpers ────────────────────────────────────────────────────
+
+def _fetch_complex_search(params: dict) -> dict:
+    res = requests.get(f'{BASE_URL}/recipes/complexSearch', params=params, timeout=8)
+    res.raise_for_status()
+    return res.json()
+
+
+def _fetch_information_bulk(ids: str) -> list:
+    res = requests.get(
+        f'{BASE_URL}/recipes/informationBulk',
+        params={'apiKey': _key(), 'ids': ids},
+        timeout=8,
+    )
+    res.raise_for_status()
+    return res.json()
+
+
+def _fetch_find_by_ingredients(params: dict) -> list:
+    res = requests.get(f'{BASE_URL}/recipes/findByIngredients', params=params, timeout=8)
+    res.raise_for_status()
+    return res.json()
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def search_by_name(query: str, filters: dict = None):
     filters = filters or {}
     limit   = filters.get('number', 12)
 
+    # DB first
     recipes, total = _db_search_by_name(query, filters, limit)
     if len(recipes) > 0:
         return recipes, total
 
-    # Cache miss — hit Spoonacular
+    # Cache miss — fire complexSearch and prepare for parallel bulk fetch
     params = {
         'apiKey':               _key(),
         'query':                query,
@@ -110,53 +136,57 @@ def search_by_name(query: str, filters: dict = None):
     if filters.get('diet'):     params['diet']         = ','.join(filters['diet'])
     if filters.get('cuisine'):  params['cuisine']      = ','.join(filters['cuisine'])
 
-    res = requests.get(f'{BASE_URL}/recipes/complexSearch', params=params, timeout=8)
-    res.raise_for_status()
-    data    = res.json()
-    results = data.get('results', [])
+    search_data = _fetch_complex_search(params)
+    results     = search_data.get('results', [])
     if not results:
         return [], 0
 
-    ids      = ','.join(str(r['id']) for r in results)
-    bulk     = requests.get(f'{BASE_URL}/recipes/informationBulk',
-                            params={'apiKey': _key(), 'ids': ids}, timeout=8)
-    bulk.raise_for_status()
-    time_map = {item['id']: item.get('readyInMinutes') for item in bulk.json()}
-    for item in results:
-        if time_map.get(item['id']):
-            item['readyInMinutes'] = time_map[item['id']]
+    # Fire informationBulk in parallel with _persist_basic calls
+    ids = ','.join(str(r['id']) for r in results)
 
-    recipes = [_persist_basic(item) for item in results]
-    return recipes, data.get('totalResults', 0)
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        bulk_future    = ex.submit(_fetch_information_bulk, ids)
+        persist_future = ex.submit(lambda: [_persist_basic(item) for item in results])
+
+        bulk_data = bulk_future.result()
+        recipes   = persist_future.result()
+
+    # Patch accurate times onto already-persisted recipes
+    time_map = {item['id']: item.get('readyInMinutes') for item in bulk_data}
+    for recipe in recipes:
+        accurate_time = time_map.get(recipe.external_id)
+        if accurate_time and accurate_time != 45:
+            recipe.ready_in_minutes = accurate_time
+            recipe.save(update_fields=['ready_in_minutes'])
+
+    return recipes, search_data.get('totalResults', 0)
 
 
 def search_by_ingredients(ingredients: list, filters: dict = None):
     filters = filters or {}
     limit   = filters.get('number', 12)
 
+    # DB first
     recipes, total = _db_search_by_ingredients(ingredients, limit)
     if len(recipes) > 0:
         return recipes, total
 
-    # Cache miss — hit Spoonacular
-    params = {
+    # Cache miss — fire findByIngredients then bulk info in parallel
+    ing_params = {
         'apiKey':       _key(),
         'ingredients':  ','.join(ingredients),
         'number':       limit,
         'ranking':      1,
         'ignorePantry': 'true',
     }
-    res = requests.get(f'{BASE_URL}/recipes/findByIngredients', params=params, timeout=8)
-    res.raise_for_status()
-    items = res.json()
+
+    items = _fetch_find_by_ingredients(ing_params)
     if not items:
         return [], 0
 
-    ids  = ','.join(str(i['id']) for i in items)
-    bulk = requests.get(f'{BASE_URL}/recipes/informationBulk',
-                        params={'apiKey': _key(), 'ids': ids}, timeout=8)
-    bulk.raise_for_status()
-    recipes = [_persist_basic(item) for item in bulk.json()]
+    ids = ','.join(str(i['id']) for i in items)
+    bulk_data = _fetch_information_bulk(ids)
+    recipes   = [_persist_basic(item) for item in bulk_data]
     return recipes, len(recipes)
 
 
