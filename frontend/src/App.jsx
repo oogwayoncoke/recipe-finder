@@ -8,6 +8,7 @@ import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import RegisterPage from "./pages/RegisterPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 export default function App() {
   return (
@@ -22,6 +23,10 @@ export default function App() {
             <Route
               path="/auth/google/callback"
               element={<GoogleCallbackPage />}
+            />
+            <Route
+              path="/reset-password/:uid/:token"
+              element={<ResetPasswordPage />}
             />
             <Route element={<ProtectedRoute />}>
               <Route path="/discover" element={<DiscoverPage />} />

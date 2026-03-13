@@ -30,14 +30,20 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
 
   const abortRef = useRef(null);
   const debounceRef = useRef(null);
+  // Keep a ref to latest filters so async callbacks always read fresh values
+  const filtersRef = useRef(filters);
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   function buildFilters() {
-    const f = {};
-    if (filters.perPage) f.number = parseInt(filters.perPage);
-    if (filters.maxTime !== "any") f.maxTime = parseInt(filters.maxTime);
-    if ((filters.diet ?? []).length) f.diet = filters.diet;
-    if ((filters.cuisine ?? []).length) f.cuisine = filters.cuisine;
-    return f;
+    const f = filtersRef.current;
+    const out = {};
+    if (f.perPage) out.number = parseInt(f.perPage);
+    if (f.maxTime !== "any") out.maxTime = parseInt(f.maxTime);
+    if ((f.diet ?? []).length) out.diet = f.diet;
+    if ((f.cuisine ?? []).length) out.cuisine = f.cuisine;
+    return out;
   }
 
   async function post(body) {
@@ -60,7 +66,7 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
   }
 
   async function searchByName(q = query) {
-    if (!q.trim()) return;
+    // allow empty query — backend handles filter-only browse
     setError(null);
     onLoading(true);
     try {
@@ -99,6 +105,26 @@ export default function SearchPanel({ filters, onResults, onLoading }) {
     },
     [filters],
   );
+
+  // Re-run last search when filters change
+  const queryRef = useRef(query);
+  const ingredientsRef = useRef(ingredients);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  useEffect(() => {
+    ingredientsRef.current = ingredients;
+  }, [ingredients]);
+
+  useEffect(() => {
+    const q = queryRef.current.trim();
+    const ing = ingredientsRef.current;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (tab === "ingredients" && ing.length) searchByIngredients();
+      else searchByName(q); // fires with empty query for filter-only browse
+    }, 300);
+  }, [filters]);
 
   function handleQueryChange(e) {
     setQuery(e.target.value);

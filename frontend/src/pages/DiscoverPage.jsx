@@ -24,15 +24,18 @@ export default function DiscoverPage() {
   const [selected, setSelected] = useState(null);
   const [detailLoading, setDL] = useState(false);
 
-  // Load DB recipes on mount — no external API call
+  // Initial load — filter-only browse, no query, no external API call
   useEffect(() => {
     async function loadInitial() {
       setLoading(true);
       try {
-        const res = await fetch(`${API}/recipes/?limit=12`, {
+        const res = await fetch(`${API}/recipes/search/`, {
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("access")}`,
           },
+          body: JSON.stringify({ filters: { number: 12 } }),
         });
         if (res.ok) {
           const data = await res.json();

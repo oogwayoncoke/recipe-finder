@@ -1,17 +1,16 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from authentication.views import AvatarUploadView, ProfileView, ConfirmEmailView, MyTokenObtainPairView, UserRegisterView
-from authentication.views.google import GoogleLoginView
 
+from .views.creat_user import UserRegisterView, ConfirmEmailView, MyTokenObtainPairView
+from .views.google import GoogleLoginView
+from .views.password_reset import PasswordResetRequestView, PasswordResetConfirmView
 
 urlpatterns = [
-    # Auth
-    path('register/', UserRegisterView.as_view(), name='register'),
-    path('verify-email/', ConfirmEmailView.as_view(), name='confirm-email'),
-    path('token/', MyTokenObtainPairView.as_view(), name='token-obtain'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
-    path('google/', GoogleLoginView.as_view(), name='auth-google'),
-    # Profile
-    path('profile/', ProfileView.as_view(), name='profile'),
-    path('profile/avatar/', AvatarUploadView.as_view(), name='profile-avatar'),
+    path('register/',                    UserRegisterView.as_view(),          name='auth-register'),
+    path('login/',                       MyTokenObtainPairView.as_view(),   name='auth-login'),
+    path('token/refresh/',               TokenRefreshView.as_view(),        name='auth-token-refresh'),
+    path('confirm-email/<str:key>/',     ConfirmEmailView.as_view(),        name='auth-confirm-email'),
+    path('google/',                      GoogleLoginView.as_view(),         name='auth-google'),
+    path('password-reset/',              PasswordResetRequestView.as_view(), name='auth-password-reset'),
+    path('password-reset/confirm/',      PasswordResetConfirmView.as_view(), name='auth-password-reset-confirm'),
 ]

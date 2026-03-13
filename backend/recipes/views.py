@@ -29,17 +29,14 @@ class RecipeSearchView(APIView):
         ingredients = request.data.get('ingredients', [])
         filters     = request.data.get('filters', {})
 
-        if not query and not ingredients:
-            return Response(
-                {'error': 'Provide either query or ingredients.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
             if ingredients:
                 recipes, total = spoonacular.search_by_ingredients(ingredients, filters)
-            else:
+            elif query:
                 recipes, total = spoonacular.search_by_name(query, filters)
+            else:
+                # Filter-only browse — no query, no external API call
+                recipes, total = spoonacular.browse(filters)
         except Exception as e:
             return Response(
                 {'error': str(e)},

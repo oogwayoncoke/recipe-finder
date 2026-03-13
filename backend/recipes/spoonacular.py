@@ -18,13 +18,27 @@ def _key():
 
 def _db_search_by_name(query: str, filters: dict, limit: int):
     qs = Recipe.objects.filter(title__icontains=query)
+
+    has_filters = (
+        filters.get('maxTime') or
+        filters.get('diet') or
+        filters.get('cuisine')
+    )
+
     if filters.get('maxTime'):
         qs = qs.filter(ready_in_minutes__lte=filters['maxTime'])
     for d in filters.get('diet', []):
         qs = qs.filter(recipe_tags__tag__name__icontains=d)
     for c in filters.get('cuisine', []):
         qs = qs.filter(recipe_tags__tag__name__icontains=c)
+
     recipes = list(qs.distinct()[:limit])
+
+    # If filters are active but DB returns nothing, force API call
+    # so we don't serve stale unfiltered cache as an empty result
+    if has_filters and not recipes:
+        return [], 0
+
     return recipes, len(recipes)
 
 
@@ -210,3 +224,21 @@ def fetch_recipe_detail(external_id: int):
         recipe = _persist_basic(data)
     _persist_full(recipe, data)
     return recipe
+
+def browse(filters: dict = None):
+    """Filter-only browse — no query, no external API call."""
+    filters = filters or {}
+    limit   = filters.get('number', 12)
+
+    qs = Recipe.objects.all()
+
+    if filters.get('maxTime'):
+        qs = qs.filter(ready_in_minutes__lte=filters['maxTime'])
+    for d in filters.get('diet', []):
+        qs = qs.filter(recipe_tags__tag__name__icontains=d)
+    for c in filters.get('cuisine', []):
+        qs = qs.filter(recipe_tags__tag__name__icontains=c)
+
+    total   = qs.distinct().count()
+    recipes = list(qs.distinct().order_by('-id')[:limit])
+    return recipes, total
