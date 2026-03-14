@@ -36,6 +36,8 @@ SIMPLE_JWT = {
     "USER_ID_FIELD":           "UUID",
     "USER_ID_CLAIM":           "user_id",
     "TOKEN_OBTAIN_SERIALIZER": "authentication.serializers.MyTokenObtainPairSerializer",
+    # Don't raise on missing/invalid token — let view permission class decide
+    "AUTH_HEADER_TYPES":       ("Bearer",),
 }
 
 INSTALLED_APPS = [
@@ -123,7 +125,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-AUTH_USER_MODEL   = "authentication.User"
+AUTH_USER_MODEL       = "authentication.User"
 ACCOUNT_LOGIN_METHODS = {"email", "username"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_ADAPTER       = "authentication.adapter.AccountAdapter"

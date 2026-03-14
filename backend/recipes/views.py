@@ -1,5 +1,6 @@
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import BasicAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,8 +10,9 @@ from . import spoonacular
 
 
 class RecipeListView(APIView):
-    """GET /recipes/ — returns latest seeded/cached recipes, no external API call."""
-    permission_classes = [IsAuthenticated]
+    """GET /recipes/ — public, no auth required."""
+    permission_classes     = [AllowAny]
+    authentication_classes = []
 
     def get(self, request):
         limit   = int(request.query_params.get('limit', 12))
@@ -22,7 +24,9 @@ class RecipeListView(APIView):
 
 
 class RecipeSearchView(APIView):
-    permission_classes = [IsAuthenticated]
+    """POST /recipes/search/ — public browse, history saved for authed users only."""
+    permission_classes     = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         query       = request.data.get('query', '').strip()
@@ -35,7 +39,6 @@ class RecipeSearchView(APIView):
             elif query:
                 recipes, total = spoonacular.search_by_name(query, filters)
             else:
-                # Filter-only browse — no query, no external API call
                 recipes, total = spoonacular.browse(filters)
         except Exception as e:
             return Response(
@@ -43,10 +46,12 @@ class RecipeSearchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        History.objects.bulk_create(
-            [History(user=request.user, recipe=r) for r in recipes],
-            ignore_conflicts=True,
-        )
+        # Only log history for authenticated users
+        if request.user and request.user.is_authenticated:
+            History.objects.bulk_create(
+                [History(user=request.user, recipe=r) for r in recipes],
+                ignore_conflicts=True,
+            )
 
         return Response({
             'results': RecipeBasicSerializer(recipes, many=True).data,
@@ -55,7 +60,9 @@ class RecipeSearchView(APIView):
 
 
 class RecipeDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+    """GET /recipes/<external_id>/ — public."""
+    permission_classes     = [AllowAny]
+    authentication_classes = []
 
     def get(self, request, external_id):
         try:

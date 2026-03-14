@@ -3,7 +3,9 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import VerifyEmail from "./components/auth/VerifyEmail";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+
 import DiscoverPage from "./pages/DiscoverPage";
+import GetStartedPage from "./pages/GetStartedPage";
 import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -28,9 +30,14 @@ export default function App() {
               path="/reset-password/:uid/:token"
               element={<ResetPasswordPage />}
             />
+
+            {/* Protected — ProtectedRoute handles onboarding redirect */}
             <Route element={<ProtectedRoute />}>
+              <Route path="/get-started" element={<GetStartedPage />} />
+
               <Route path="/discover" element={<DiscoverPage />} />
             </Route>
+
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </AuthProvider>

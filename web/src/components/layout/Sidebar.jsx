@@ -4,10 +4,9 @@ const DIETARY_FILTERS = [
   { slug: "vegetarian", label: "Vegetarian" },
   { slug: "vegan", label: "Vegan" },
   { slug: "gluten-free", label: "Gluten-Free" },
-  { slug: "dairy-free", label: "Dairy-Free" },
+  { slug: "halal", label: "Halal" },
   { slug: "keto", label: "Keto" },
   { slug: "paleo", label: "Paleo" },
-  { slug: "halal", label: "Halal" },
   { slug: "kosher", label: "Kosher" },
 ];
 
@@ -25,10 +24,12 @@ export default function Sidebar({ filters, onChange }) {
 
   function toggleFilter(type, slug) {
     const current = filters[type] ?? [];
-    const next = current.includes(slug)
-      ? current.filter((s) => s !== slug)
-      : [...current, slug];
-    onChange({ ...filters, [type]: next });
+    onChange({
+      ...filters,
+      [type]: current.includes(slug)
+        ? current.filter((s) => s !== slug)
+        : [...current, slug],
+    });
   }
 
   function isOn(type, slug) {
@@ -43,46 +44,46 @@ export default function Sidebar({ filters, onChange }) {
   return (
     <aside
       style={{
-        width: "240px",
+        width: "200px",
         flexShrink: 0,
         borderRight: "1px solid var(--border)",
+        backgroundColor: "var(--bg)",
         display: "flex",
         flexDirection: "column",
         height: "100%",
         overflowY: "auto",
-        backgroundColor: "var(--bg)",
       }}
     >
-      {/* Section tabs */}
+      {/* Tabs */}
       <div
         style={{
           display: "flex",
           borderBottom: "1px solid var(--border)",
           flexShrink: 0,
+          height: "2.5rem",
         }}
       >
         {[
-          ["filters", "Filters"],
-          ["settings", "Settings"],
+          ["filters", "FILTERS"],
+          ["settings", "SETTINGS"],
         ].map(([key, label]) => (
           <button
             key={key}
             onClick={() => setSection(key)}
             style={{
               flex: 1,
-              padding: "0.75rem 0",
-              fontFamily: '"DM Mono", monospace',
-              fontSize: "0.68rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
               background: "none",
               border: "none",
+              cursor: "pointer",
+              fontFamily: "Inter, sans-serif",
+              fontSize: "0.625rem",
+              letterSpacing: "0.12em",
+              fontWeight: 400,
+              color: section === key ? "var(--accent)" : "var(--text-dim)",
               borderBottom:
                 section === key
                   ? "2px solid var(--accent)"
                   : "2px solid transparent",
-              color: section === key ? "var(--accent)" : "var(--text-dim)",
-              cursor: "pointer",
               marginBottom: "-1px",
               transition: "color 0.15s",
             }}
@@ -93,54 +94,46 @@ export default function Sidebar({ filters, onChange }) {
       </div>
 
       {section === "filters" && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            paddingTop: "0.5rem",
-          }}
-        >
-          <SidebarLabel>Time</SidebarLabel>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <FilterLabel>TIME</FilterLabel>
           {[
             ["any", "Any time"],
             ["30", "< 30 min"],
             ["15", "< 15 min"],
           ].map(([val, label]) => (
-            <SidebarItem
+            <FilterItem
               key={val}
               active={filters.maxTime === val}
               onClick={() => onChange({ ...filters, maxTime: val })}
             >
               {label}
-            </SidebarItem>
+            </FilterItem>
           ))}
 
-          <SidebarLabel>Diet</SidebarLabel>
+          <FilterLabel>DIET</FilterLabel>
           {DIETARY_FILTERS.map(({ slug, label }) => (
-            <SidebarItem
+            <FilterItem
               key={slug}
               active={isOn("diet", slug)}
               onClick={() => toggleFilter("diet", slug)}
-              checkbox
             >
               {label}
-            </SidebarItem>
+            </FilterItem>
           ))}
 
-          <SidebarLabel>Cuisine</SidebarLabel>
+          <FilterLabel>CUISINE</FilterLabel>
           {CUISINE_FILTERS.map(({ slug, label }) => (
-            <SidebarItem
+            <FilterItem
               key={slug}
               active={isOn("cuisine", slug)}
               onClick={() => toggleFilter("cuisine", slug)}
-              checkbox
             >
               {label}
-            </SidebarItem>
+            </FilterItem>
           ))}
 
           {hasActive && (
-            <div style={{ padding: "0.75rem 1rem 0.25rem" }}>
+            <div style={{ padding: "0.75rem 1rem 0.5rem" }}>
               <button
                 onClick={() =>
                   onChange({
@@ -151,13 +144,13 @@ export default function Sidebar({ filters, onChange }) {
                   })
                 }
                 style={{
-                  fontFamily: '"DM Mono", monospace',
-                  fontSize: "0.65rem",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "0.625rem",
                   color: "var(--error)",
                   background: "none",
                   border: "none",
                   cursor: "pointer",
-                  letterSpacing: "0.05em",
+                  letterSpacing: "0.04em",
                 }}
               >
                 ✕ clear all filters
@@ -168,77 +161,68 @@ export default function Sidebar({ filters, onChange }) {
       )}
 
       {section === "settings" && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            paddingTop: "0.5rem",
-          }}
-        >
-          <SidebarLabel>Display</SidebarLabel>
-          <SidebarItem
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <FilterLabel>DISPLAY</FilterLabel>
+          <FilterItem
             active={filters.layout === "grid"}
             onClick={() => onChange({ ...filters, layout: "grid" })}
           >
             ⊞ Grid view
-          </SidebarItem>
-          <SidebarItem
+          </FilterItem>
+          <FilterItem
             active={filters.layout === "list"}
             onClick={() => onChange({ ...filters, layout: "list" })}
           >
             ☰ List view
-          </SidebarItem>
+          </FilterItem>
 
-          <SidebarLabel>Results</SidebarLabel>
+          <FilterLabel>RESULTS</FilterLabel>
           {[
             ["12", "12 per page"],
             ["24", "24 per page"],
             ["48", "48 per page"],
           ].map(([val, label]) => (
-            <SidebarItem
+            <FilterItem
               key={val}
               active={filters.perPage === val}
               onClick={() => onChange({ ...filters, perPage: val })}
             >
               {label}
-            </SidebarItem>
+            </FilterItem>
           ))}
 
-          <SidebarLabel>Preferences</SidebarLabel>
-          <SidebarItem
+          <FilterLabel>PREFERENCES</FilterLabel>
+          <FilterItem
             active={filters.useMyDiet}
             onClick={() =>
               onChange({ ...filters, useMyDiet: !filters.useMyDiet })
             }
-            checkbox
           >
             Use my diet profile
-          </SidebarItem>
-          <SidebarItem
+          </FilterItem>
+          <FilterItem
             active={filters.useMyAllergies}
             onClick={() =>
               onChange({ ...filters, useMyAllergies: !filters.useMyAllergies })
             }
-            checkbox
           >
             Exclude my allergies
-          </SidebarItem>
+          </FilterItem>
         </div>
       )}
     </aside>
   );
 }
 
-function SidebarLabel({ children }) {
+function FilterLabel({ children }) {
   return (
     <div
       style={{
-        fontFamily: '"DM Mono", monospace',
-        fontSize: "0.62rem",
-        textTransform: "uppercase",
-        letterSpacing: "0.1em",
+        fontFamily: "Inter, sans-serif",
+        fontSize: "0.625rem",
+        letterSpacing: "0.12em",
         color: "var(--text-dim)",
-        padding: "1rem 1rem 0.375rem",
+        padding: "0.75rem 1rem 0.375rem",
       }}
     >
       {children}
@@ -246,23 +230,20 @@ function SidebarLabel({ children }) {
   );
 }
 
-function SidebarItem({ children, active, onClick, checkbox }) {
+function FilterItem({ children, active, onClick }) {
   return (
     <button
       onClick={onClick}
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "0.625rem",
         width: "100%",
         textAlign: "left",
         padding: "0.5rem 1rem",
-        fontSize: "0.83rem",
-        fontFamily: '"DM Sans", sans-serif',
-        fontWeight: 300,
-        background: active
-          ? "color-mix(in srgb, var(--accent) 8%, transparent)"
-          : "none",
+        fontFamily: "Inter, sans-serif",
+        fontSize: "0.8125rem",
+        fontWeight: active ? 500 : 400,
+        background: active ? "rgba(212,168,67,0.08)" : "none",
         border: "none",
         borderLeft: active
           ? "2px solid var(--accent)"
@@ -284,30 +265,6 @@ function SidebarItem({ children, active, onClick, checkbox }) {
         }
       }}
     >
-      {checkbox && (
-        <span
-          style={{
-            width: "0.875rem",
-            height: "0.875rem",
-            border: active
-              ? "1px solid var(--accent)"
-              : "1px solid var(--border-2)",
-            borderRadius: "0.125rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            fontSize: "0.5rem",
-            color: "var(--accent)",
-            backgroundColor: active
-              ? "color-mix(in srgb, var(--accent) 15%, transparent)"
-              : "transparent",
-            transition: "all 0.1s",
-          }}
-        >
-          {active && "✓"}
-        </span>
-      )}
       {children}
     </button>
   );
