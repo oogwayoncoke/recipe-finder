@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "authentication",
     "recipes",
     "chatbot",
+    "likes",
 ]
 
 SITE_ID = 1

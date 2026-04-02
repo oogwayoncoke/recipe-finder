@@ -8,6 +8,7 @@ urlpatterns = [
     path("authentication/", include("authentication.urls")),
     path('recipes/', include('recipes.urls')),
     path("chatbot/", include("chatbot.urls")),
+    path("likes/", include("likes.urls")),
 ]
 
 if settings.DEBUG:

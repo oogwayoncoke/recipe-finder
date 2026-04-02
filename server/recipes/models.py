@@ -80,25 +80,5 @@ class RecipeTag(models.Model):
         unique_together = ('recipe', 'tag')
 
 
-# ── User interactions ─────────────────────────────────────────────────────────
-
-class Favorites(models.Model):
-    user   = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                               related_name='favorites', to_field='UUID')
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-
-    class Meta:
-        db_table        = 'favorites'
-        unique_together = ('user', 'recipe')
 
 
-class History(models.Model):
-    user      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                                  related_name='history', to_field='UUID')
-    recipe    = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-    viewed_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'history'
-        ordering = ['-viewed_at']
-    
