@@ -1,37 +1,33 @@
 from rest_framework import serializers
-from .models import Favorite
+from recipes.serializers import RecipeBasicSerializer
+from .models import UserFavourite
 
 
-class FavoriteToggleSerializer(serializers.ModelSerializer):
+class FavouriteToggleSerializer(serializers.ModelSerializer):
     """
-    Lightweight response for POST (save) — just confirms the action
-    and returns the object_id so the frontend can flip the heart icon.
+    Lightweight response for POST /api/recipes/favourites/toggle/ —
+    confirms the save and returns the recipe's external_id so the
+    frontend can flip the heart icon on the correct RecipeCard.
     """
+    external_id = serializers.CharField(source='recipe.external_id', read_only=True)
+
     class Meta:
-        model        = Favorite
-        fields       = ['id', 'object_id', 'saved_at']
+        model            = UserFavourite
+        fields           = ['id', 'external_id', 'saved_at']
         read_only_fields = fields
 
 
-class FavoriteListSerializer(serializers.ModelSerializer):
+class FavouriteListSerializer(serializers.ModelSerializer):
     """
-    Used by FavoriteListView — embeds the serialized target object
-    so the Favorites page gets everything it needs in one request.
+    Used by FavouriteListView — embeds the full basic recipe data so
+    the Favorites page gets everything it needs in one request.
 
-    `item` is injected by the view after serializing the content_object
-    with its own app's serializer (e.g. RecipeBasicSerializer).
+    The nested RecipeBasicSerializer returns: external_id, title,
+    image_url, ready_in_minutes, servings, and diet_tags — exactly
+    what RecipeCard renders on the web and Flutter clients.
     """
-    item = serializers.SerializerMethodField()
+    recipe = RecipeBasicSerializer(read_only=True)
 
     class Meta:
-        model  = Favorite
-        fields = ['id', 'object_id', 'saved_at', 'item']
-
-    def get_item(self, obj):
-        # The view injects a `serializer_map` into context:
-        # { ContentType.pk: SerializerClass }
-        serializer_map = self.context.get('serializer_map', {})
-        serializer_cls = serializer_map.get(obj.content_type_id)
-        if serializer_cls and obj.content_object:
-            return serializer_cls(obj.content_object, context=self.context).data
-        return None
+        model  = UserFavourite
+        fields = ['id', 'saved_at', 'recipe']

@@ -1,46 +1,44 @@
 from django.conf import settings
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 
-class Favorite(models.Model):
+class UserFavourite(models.Model):
     """
-    Generic favorites model — works with ANY model in the project.
+    Stores a favorited recipe for a specific user.
 
-    Uses Django's ContentType framework so the same table can store:
-      - a favorited Recipe
-      - a favorited MealPlan  (future feature)
-      - anything else
+    Linked directly to the Recipe model (via external_id-based UUID PK),
+    not via Django's generic ContentType framework — the dish app only
+    ever favorites recipes, so the generic approach adds complexity with
+    no benefit.
 
-    Usage from any other app:
-        from favorites.models import Favorite
-        Favorite.objects.create(user=request.user, content_object=recipe_instance)
+    Usage:
+        UserFavourite.objects.create(user=request.user, recipe=recipe_instance)
+        UserFavourite.objects.filter(user=request.user).select_related('recipe')
     """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='favorites',
+        related_name='favourites',
         to_field='UUID',
     )
 
-    # --- Generic FK (points to any model) ------------------------------------
-    content_type   = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id      = models.PositiveIntegerField()
-    content_object = GenericForeignKey('content_type', 'object_id')
-    # -------------------------------------------------------------------------
+    recipe = models.ForeignKey(
+        'recipes.Recipe',
+        on_delete=models.CASCADE,
+        related_name='favourited_by',
+    )
 
     saved_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table        = 'favorites'
+        db_table        = 'user_favourites'
         ordering        = ['-saved_at']
-        # One row per (user, target object) — no duplicate hearts
-        unique_together = ('user', 'content_type', 'object_id')
+        # One row per (user, recipe) — toggling the heart cannot create duplicates
+        unique_together = ('user', 'recipe')
         indexes = [
-            models.Index(fields=['content_type', 'object_id']),
+            models.Index(fields=['user', 'recipe']),
         ]
 
     def __str__(self):
-        return f"{self.user} ♥ {self.content_object}"
+        return f"{self.user.username} ♥ {self.recipe.title}"
