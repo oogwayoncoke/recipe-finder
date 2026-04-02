@@ -5,7 +5,7 @@ import RecipeGrid from "../components/recipe/RecipeGrid";
 import SearchPanel from "../components/search/SearchPanel";
 import { trackView } from "../utils/historyTracker";
 
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api";
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 const DEFAULT_FILTERS = {
   maxTime: "any",
@@ -25,6 +25,9 @@ export default function DiscoverPage() {
   const [selected, setSelected] = useState(null);
   const [detailLoading, setDL] = useState(false);
 
+  // Set of external_ids the user has saved — drives heart icon state on every card
+  const [favourites, setFavourites] = useState(new Set());
+
   const detailCache = useRef({});
   const prefetchAborts = useRef({});
 
@@ -33,6 +36,9 @@ export default function DiscoverPage() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
+  const isLoggedIn = !!localStorage.getItem("access");
+
+  // ── Initial recipe load ────────────────────────────────────────────────────
   useEffect(() => {
     async function loadInitial() {
       setLoading(true);
@@ -55,6 +61,72 @@ export default function DiscoverPage() {
     loadInitial();
   }, []);
 
+  // ── Fetch saved favourites on mount (logged-in only) ──────────────────────
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    async function loadFavourites() {
+      try {
+        // CHANGED: Endpoint updated to /likes/
+        const res = await fetch(`${API}/likes/`, {
+          headers: getAuthHeader(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const ids = new Set(data.map((f) => f.recipe.external_id));
+          setFavourites(ids);
+        }
+      } catch {}
+    }
+    loadFavourites();
+  }, [isLoggedIn]);
+
+  // ── Toggle heart on a card ─────────────────────────────────────────────────
+  async function handleToggleFavourite(recipe) {
+    const id = recipe.external_id;
+    const wasSaved = favourites.has(id);
+
+    // Optimistic update — flip immediately so the UI feels instant
+    setFavourites((prev) => {
+      const next = new Set(prev);
+      wasSaved ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+    try {
+      // CHANGED: Endpoint updated to /likes/ and added POST body data
+      const res = await fetch(`${API}/likes/recipes/${id}/`, {
+        method: wasSaved ? "DELETE" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: wasSaved
+          ? null
+          : JSON.stringify({
+              title: recipe.title,
+              image_url: recipe.image_url,
+            }),
+      });
+
+      // Roll back if the request failed
+      if (!res.ok && res.status !== 204) {
+        setFavourites((prev) => {
+          const next = new Set(prev);
+          wasSaved ? next.add(id) : next.delete(id);
+          return next;
+        });
+      }
+    } catch {
+      // Network error — roll back
+      setFavourites((prev) => {
+        const next = new Set(prev);
+        wasSaved ? next.add(id) : next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  // ── Hover prefetch ─────────────────────────────────────────────────────────
   function handleCardHover(recipe) {
     const id = recipe.external_id;
     if (!id || detailCache.current[id] || prefetchAborts.current[id]) return;
@@ -82,6 +154,7 @@ export default function DiscoverPage() {
     }
   }
 
+  // ── Open modal ─────────────────────────────────────────────────────────────
   async function handleCardClick(recipe) {
     const id = recipe.external_id;
 
@@ -91,7 +164,6 @@ export default function DiscoverPage() {
       return;
     }
 
-    // Open immediately with basic card data — user sees content right away
     setSelected(recipe);
     setDL(true);
 
@@ -245,6 +317,8 @@ export default function DiscoverPage() {
               onCardClick={handleCardClick}
               onCardHover={handleCardHover}
               onCardHoverEnd={handleCardHoverEnd}
+              favourites={isLoggedIn ? favourites : null}
+              onToggleFavourite={isLoggedIn ? handleToggleFavourite : null}
             />
           </div>
         </main>
@@ -254,6 +328,8 @@ export default function DiscoverPage() {
         <RecipeModal
           recipe={selected}
           loading={detailLoading}
+          isFavourited={favourites.has(selected.external_id)}
+          onToggleFavourite={isLoggedIn ? handleToggleFavourite : null}
           onClose={() => setSelected(null)}
         />
       )}
@@ -284,7 +360,6 @@ function IngredientsSkeleton() {
             padding: "0.45rem 0",
           }}
         >
-          {/* amount pill */}
           <div
             style={{
               width: `${w * 0.4}%`,
@@ -295,7 +370,6 @@ function IngredientsSkeleton() {
             }}
             className="animate-pulse"
           />
-          {/* name bar */}
           <div
             style={{
               width: `${w}%`,
@@ -320,7 +394,6 @@ function StepsSkeleton() {
           key={i}
           style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}
         >
-          {/* step number */}
           <div
             style={{
               width: "1.25rem",
@@ -349,7 +422,6 @@ function StepsSkeleton() {
               }}
               className="animate-pulse"
             />
-            {/* second line for longer steps */}
             {w > 75 && (
               <div
                 style={{
@@ -369,7 +441,13 @@ function StepsSkeleton() {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
-function RecipeModal({ recipe, loading, onClose }) {
+function RecipeModal({
+  recipe,
+  loading,
+  onClose,
+  isFavourited,
+  onToggleFavourite,
+}) {
   const hasIngredients = (recipe.ingredients ?? []).length > 0;
   const hasInstructions = (recipe.instructions ?? []).length > 0;
 
@@ -438,7 +516,7 @@ function RecipeModal({ recipe, loading, onClose }) {
           />
         </div>
 
-        {/* Hero image — shown immediately from card data */}
+        {/* Hero image */}
         {recipe.image_url && (
           <img
             src={recipe.image_url}
@@ -469,10 +547,44 @@ function RecipeModal({ recipe, loading, onClose }) {
               fontSize: "1.25rem",
               color: "var(--text)",
               lineHeight: 1.3,
+              flex: 1,
             }}
           >
             {recipe.title}
           </h2>
+
+          {/* Heart button in modal header */}
+          {onToggleFavourite && (
+            <button
+              onClick={() => onToggleFavourite(recipe)}
+              title={
+                isFavourited ? "Remove from favourites" : "Save to favourites"
+              }
+              style={{
+                width: "2.5rem",
+                height: "2.5rem",
+                flexShrink: 0,
+                backgroundColor: "var(--bg-hover)",
+                border: "1px solid var(--border)",
+                borderRadius: "50%",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "border-color 0.15s",
+                padding: 0,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.borderColor = "var(--accent)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.borderColor = "var(--border)")
+              }
+            >
+              <HeartIcon filled={isFavourited} size={15} />
+            </button>
+          )}
+
           <button
             onClick={onClose}
             style={{
@@ -495,7 +607,7 @@ function RecipeModal({ recipe, loading, onClose }) {
         </div>
 
         <div style={{ padding: "1.25rem" }}>
-          {/* Meta — always visible from card data */}
+          {/* Meta */}
           <div
             style={{ display: "flex", gap: "1.5rem", marginBottom: "1.25rem" }}
           >
@@ -532,7 +644,6 @@ function RecipeModal({ recipe, loading, onClose }) {
                 </div>
               </div>
             ))}
-            {/* Loading badge — replaces the old full skeleton */}
             {loading && (
               <div
                 style={{
@@ -542,42 +653,25 @@ function RecipeModal({ recipe, loading, onClose }) {
                   gap: "0.375rem",
                 }}
               >
-                <div
-                  style={{
-                    width: "0.4rem",
-                    height: "0.4rem",
-                    borderRadius: "50%",
-                    background: "var(--accent)",
-                    opacity: 0.7,
-                    animation: "dishDotPulse 1s ease-in-out 0s infinite",
-                  }}
-                />
-                <div
-                  style={{
-                    width: "0.4rem",
-                    height: "0.4rem",
-                    borderRadius: "50%",
-                    background: "var(--accent)",
-                    opacity: 0.7,
-                    animation: "dishDotPulse 1s ease-in-out 0.2s infinite",
-                  }}
-                />
-                <div
-                  style={{
-                    width: "0.4rem",
-                    height: "0.4rem",
-                    borderRadius: "50%",
-                    background: "var(--accent)",
-                    opacity: 0.7,
-                    animation: "dishDotPulse 1s ease-in-out 0.4s infinite",
-                  }}
-                />
+                {[0, 0.2, 0.4].map((delay) => (
+                  <div
+                    key={delay}
+                    style={{
+                      width: "0.4rem",
+                      height: "0.4rem",
+                      borderRadius: "50%",
+                      background: "var(--accent)",
+                      opacity: 0.7,
+                      animation: `dishDotPulse 1s ease-in-out ${delay}s infinite`,
+                    }}
+                  />
+                ))}
                 <style>{`@keyframes dishDotPulse { 0%,100%{transform:scale(1);opacity:.4} 50%{transform:scale(1.5);opacity:1} }`}</style>
               </div>
             )}
           </div>
 
-          {/* Tags — always visible from card data */}
+          {/* Tags */}
           {(recipe.tags ?? []).length > 0 && (
             <div
               style={{
@@ -606,7 +700,7 @@ function RecipeModal({ recipe, loading, onClose }) {
             </div>
           )}
 
-          {/* Ingredients — skeleton shaped like real content while loading */}
+          {/* Ingredients */}
           <div
             style={{
               fontFamily: "Inter, sans-serif",
@@ -665,7 +759,7 @@ function RecipeModal({ recipe, loading, onClose }) {
             </div>
           ) : null}
 
-          {/* Steps — skeleton shaped like real content while loading */}
+          {/* Steps */}
           <div
             style={{
               fontFamily: "Inter, sans-serif",
@@ -731,5 +825,24 @@ function RecipeModal({ recipe, loading, onClose }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Heart SVG ─────────────────────────────────────────────────────────────────
+function HeartIcon({ filled, size = 13 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? "var(--accent)" : "none"}
+      stroke={filled ? "var(--accent)" : "var(--text-dim)"}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ display: "block", transition: "fill 0.15s, stroke 0.15s" }}
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
   );
 }
