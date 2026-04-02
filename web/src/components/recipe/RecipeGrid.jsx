@@ -52,6 +52,8 @@ export default function RecipeGrid({
   total,
   layout = "grid",
   onCardClick,
+  onCardHover,
+  onCardHoverEnd,
 }) {
   const isMock = recipes.length === 0 && total === null;
   const items = isMock ? MOCK_RECIPES : recipes;
@@ -146,6 +148,8 @@ export default function RecipeGrid({
                 recipe={recipe}
                 index={i}
                 onClick={() => onCardClick?.(recipe)}
+                onHover={onCardHover}
+                onHoverEnd={onCardHoverEnd}
               />
             ))}
           </div>

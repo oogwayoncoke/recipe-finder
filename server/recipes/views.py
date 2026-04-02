@@ -1,6 +1,5 @@
 from rest_framework import status
-from rest_framework.authentication import BasicAuthentication
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,7 +15,9 @@ class RecipeListView(APIView):
 
     def get(self, request):
         limit   = int(request.query_params.get('limit', 12))
-        recipes = Recipe.objects.order_by('-id')[:limit]
+        recipes = Recipe.objects.prefetch_related(
+            'recipe_tags__tag'
+        ).order_by('-id')[:limit]
         return Response({
             'results': RecipeBasicSerializer(recipes, many=True).data,
             'total':   Recipe.objects.count(),
@@ -65,6 +66,30 @@ class RecipeDetailView(APIView):
     authentication_classes = []
 
     def get(self, request, external_id):
+        # ── Optimization: serve from DB with a single JOIN when fully populated ──
+        # prefetch_related fires two extra queries (ingredients + instructions)
+        # instead of one per row — eliminates the N+1 problem completely.
+        try:
+            candidate = (
+                Recipe.objects
+                .prefetch_related(
+                    'recipe_ingredients__ingredient',
+                    'instructions',
+                    'recipe_tags__tag',
+                    'nutrition',
+                )
+                .get(external_id=external_id)
+            )
+            # If the record already has full detail, skip the Spoonacular call
+            if (
+                candidate.recipe_ingredients.exists()
+                and candidate.instructions.exists()
+            ):
+                return Response(RecipeSerializer(candidate).data)
+        except Recipe.DoesNotExist:
+            candidate = None
+
+        # Cache miss or incomplete record — fetch from Spoonacular and persist
         try:
             recipe = spoonacular.fetch_recipe_detail(external_id)
         except Exception as e:
@@ -72,5 +97,20 @@ class RecipeDetailView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+        # Re-fetch with prefetch_related so the serializer doesn't hit N+1
+        try:
+            recipe = (
+                Recipe.objects
+                .prefetch_related(
+                    'recipe_ingredients__ingredient',
+                    'instructions',
+                    'recipe_tags__tag',
+                    'nutrition',
+                )
+                .get(pk=recipe.pk)
+            )
+        except Recipe.DoesNotExist:
+            pass
 
         return Response(RecipeSerializer(recipe).data)
