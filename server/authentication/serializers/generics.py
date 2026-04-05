@@ -5,12 +5,8 @@ from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
-from authentication.models import UserProfile
-
 User = get_user_model()
 
-
-# ── Registration ──────────────────────────────────────────────────────────────
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
@@ -54,7 +50,6 @@ class UserSerializer(serializers.ModelSerializer):
             is_active=False,
         )
 
-        # Create allauth email record and fire confirmation email
         email_obj, _ = EmailAddress.objects.get_or_create(
             user=user,
             email=user.email,
@@ -65,14 +60,11 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-# ── Token (login) ─────────────────────────────────────────────────────────────
-
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.USERNAME_FIELD  # 'email'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Accept either email or username — both optional individually
         self.fields['username'] = serializers.CharField(required=False)
         self.fields['email']    = serializers.EmailField(required=False)
         self.fields['password'] = serializers.CharField(write_only=True)
@@ -82,7 +74,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs.get('username')
         password = attrs.get('password')
 
-        # Resolve email from username if that's what was sent
         if not email and username:
             try:
                 email = User.objects.get(username=username).email
@@ -114,67 +105,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @classmethod
     def get_token(cls, user):
-        token = super().get_token(user)
-        
-        # Add these two lines
+        token            = super().get_token(user)
         token['username'] = user.username
         token['email']    = user.email
-        
-        profile = getattr(user, 'profile', None)
-        if profile:
-            token['dietary_preferences'] = profile.get_dietary_list()
-            token['allergies']           = profile.get_allergy_list()
-        else:
-            token['dietary_preferences'] = []
-            token['allergies']           = []
         return token
-
-
-# ── Profile ───────────────────────────────────────────────────────────────────
-
-from rest_framework import serializers
-from authentication.models import UserProfile
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    # Pulling basic info from the related User model (read-only)
-    username = serializers.ReadOnlyField(source='user.username')
-    email = serializers.ReadOnlyField(source='user.email')
-    
-
-    class Meta:
-        model = UserProfile
-        fields = [
-            'id', 
-            'username', 
-            'email', 
-            'bio', 
-            'dietary_preferences', 
-            'allergies', 
-            'avatar'
-        ]
-        read_only_fields = ['id', 'username', 'email']
-
-    def to_representation(self, instance):
-        """
-        Override the default representation to convert the stored comma-separated 
-        strings back into actual Python lists for the JSON response.
-        """
-        representation = super().to_representation(instance)
-
-        # Convert 'vegan,keto' -> ['vegan', 'keto']
-        if representation.get('dietary_preferences'):
-            representation['dietary_preferences'] = [
-                pref.strip() for pref in representation['dietary_preferences'].split(',') if pref.strip()
-            ]
-        else:
-            representation['dietary_preferences'] = []
-
-        # Convert 'peanuts,dairy' -> ['peanuts', 'dairy']
-        if representation.get('allergies'):
-            representation['allergies'] = [
-                allergy.strip() for allergy in representation['allergies'].split(',') if allergy.strip()
-            ]
-        else:
-            representation['allergies'] = []
-
-        return representation

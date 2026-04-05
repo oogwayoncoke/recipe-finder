@@ -173,10 +173,7 @@ export default function Navbar() {
                   zIndex: 50,
                 }}
               >
-                {[
-                  ["Profile", "/profile"],
-                  ["Settings", "/settings"],
-                ].map(([label, path]) => (
+                {[["Profile", "/profile"]].map(([label, path]) => (
                   <button
                     key={label}
                     onClick={() => {
