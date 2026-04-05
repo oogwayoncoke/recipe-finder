@@ -132,28 +132,49 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 # ── Profile ───────────────────────────────────────────────────────────────────
 
+from rest_framework import serializers
+from authentication.models import UserProfile
+
 class UserProfileSerializer(serializers.ModelSerializer):
-    username            = serializers.ReadOnlyField(source='user.username')
-    email               = serializers.ReadOnlyField(source='user.email')
-    dietary_preferences = serializers.SerializerMethodField()
-    allergies           = serializers.SerializerMethodField()
-    avatar_url          = serializers.SerializerMethodField()
+    # Pulling basic info from the related User model (read-only)
+    username = serializers.ReadOnlyField(source='user.username')
+    email = serializers.ReadOnlyField(source='user.email')
+    
 
     class Meta:
-        model  = UserProfile
+        model = UserProfile
         fields = [
-            'username', 'email', 'bio', 'avatar_url',
-            'dietary_preferences', 'allergies', 'updated_at',
+            'id', 
+            'username', 
+            'email', 
+            'bio', 
+            'dietary_preferences', 
+            'allergies', 
+            'avatar'
         ]
+        read_only_fields = ['id', 'username', 'email']
 
-    def get_dietary_preferences(self, obj):
-        return obj.get_dietary_list()
+    def to_representation(self, instance):
+        """
+        Override the default representation to convert the stored comma-separated 
+        strings back into actual Python lists for the JSON response.
+        """
+        representation = super().to_representation(instance)
 
-    def get_allergies(self, obj):
-        return obj.get_allergy_list()
+        # Convert 'vegan,keto' -> ['vegan', 'keto']
+        if representation.get('dietary_preferences'):
+            representation['dietary_preferences'] = [
+                pref.strip() for pref in representation['dietary_preferences'].split(',') if pref.strip()
+            ]
+        else:
+            representation['dietary_preferences'] = []
 
-    def get_avatar_url(self, obj):
-        request = self.context.get('request')
-        if obj.avatar and request:
-            return request.build_absolute_uri(obj.avatar.url)
-        return None
+        # Convert 'peanuts,dairy' -> ['peanuts', 'dairy']
+        if representation.get('allergies'):
+            representation['allergies'] = [
+                allergy.strip() for allergy in representation['allergies'].split(',') if allergy.strip()
+            ]
+        else:
+            representation['allergies'] = []
+
+        return representation

@@ -75,7 +75,12 @@ export default function AuthForm({ initialMode = 'login' }) {
         await login(fields.username, fields.password1)
         navigate(from, { replace: true })
       } else {
-        await register({ username: fields.username, email: fields.email, password1: fields.password1, password2: fields.password2 })
+        await register({
+          username: fields.username,
+          email: fields.email,
+          password: fields.password1,
+          password2: fields.password2,
+        });
         setReg(true)
       }
     } catch (err) {
