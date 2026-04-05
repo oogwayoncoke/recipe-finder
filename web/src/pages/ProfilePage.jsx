@@ -41,99 +41,6 @@ const INPUT = {
   transition: "border-color 0.15s",
 };
 
-// ── Username field with confirm ───────────────────────────────────────────────
-function UsernameField({ value, onConfirm }) {
-  const [draft, setDraft] = useState(value);
-
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  const isDirty = draft.trim() !== value;
-
-  function handleConfirm() {
-    if (!draft.trim()) return;
-    onConfirm(draft.trim());
-  }
-
-  function handleCancel() {
-    setDraft(value);
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <input
-          value={draft}
-          maxLength={150}
-          onChange={(e) => setDraft(e.target.value)}
-          style={INPUT}
-          onFocus={(e) => (e.target.style.borderColor = "var(--accent-dim)")}
-          onBlur={(e) =>
-            (e.target.style.borderColor = isDirty
-              ? "var(--accent-dim)"
-              : "var(--border)")
-          }
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleConfirm();
-            if (e.key === "Escape") handleCancel();
-          }}
-        />
-        {isDirty && (
-          <button
-            type="button"
-            onClick={handleConfirm}
-            style={{
-              flexShrink: 0,
-              padding: "0 1rem",
-              borderRadius: "0.25rem",
-              border: "none",
-              background: "var(--accent)",
-              color: "#11110e",
-              fontFamily: "Inter, sans-serif",
-              fontSize: "0.72rem",
-              fontWeight: 500,
-              letterSpacing: "0.03em",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              transition: "opacity 0.15s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-          >
-            Confirm ✓
-          </button>
-        )}
-      </div>
-      {isDirty && (
-        <button
-          type="button"
-          onClick={handleCancel}
-          style={{
-            alignSelf: "flex-start",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            fontFamily: "Inter, sans-serif",
-            fontSize: "0.6rem",
-            letterSpacing: "0.06em",
-            color: "var(--text-dim)",
-            padding: 0,
-            transition: "color 0.15s",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.color = "var(--text-muted)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.color = "var(--text-dim)")
-          }
-        >
-          ✕ cancel
-        </button>
-      )}
-    </div>
-  );
-}
 
 // ── Password reset panel ──────────────────────────────────────────────────────
 function PasswordResetPanel({ email }) {
@@ -660,7 +567,7 @@ export default function ProfilePage() {
     };
 
     try {
-      const res = await api.patch("/profiles/me/", payload);
+      const res = await api.patch("profiles/me/", payload);
       const d = res.data;
 
       const savedUsername = d.username ?? usernameRef.current;
@@ -797,12 +704,18 @@ export default function ProfilePage() {
 
             {/* ── Username ───────────────────────────────────────────────── */}
             <Section label="USERNAME">
-              <UsernameField
+              <input
                 value={username}
-                onConfirm={(val) => {
-                  usernameRef.current = val;
-                  setUsername(val);
+                maxLength={150}
+                onChange={(e) => {
+                  usernameRef.current = e.target.value;
+                  setUsername(e.target.value);
                 }}
+                style={INPUT}
+                onFocus={(e) =>
+                  (e.target.style.borderColor = "var(--accent-dim)")
+                }
+                onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
               />
             </Section>
 

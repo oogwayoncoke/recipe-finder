@@ -24,42 +24,30 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        print("=== PATCH /profiles/me/ hit ===")
-        print("user:", request.user)
-        print("data received:", request.data)
-
         serializer = ProfileUpdateSerializer(
             data=request.data, context={'request': request}
         )
 
         if not serializer.is_valid():
-            print("serializer errors:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data    = serializer.validated_data
         user    = request.user
         profile = _get_or_create_profile(user)
 
-        print("validated data:", data)
-        print("profile id:", profile.id, "current bio:", repr(profile.bio))
-
         # bio
         if 'bio' in data:
-            print("saving bio:", repr(data['bio']))
             profile.bio = data['bio']
             profile.save()
-            profile.refresh_from_db()
-            print("bio after save:", repr(profile.bio))
 
-        # username
-        if 'username' in data:
-            print("saving username:", repr(data['username']))
-            user.username = data['username']
+        # username: Check request.data to bypass DRF stripping unmapped fields
+        if 'username' in request.data:
+            user.username = request.data['username']
             user.save()
+            profile.user.refresh_from_db()  # ← clears Django's ORM cache
 
         # diets
         if 'diets' in data:
-            print("saving diets:", data['diets'])
             UserDiet.objects.filter(user=user).delete()
             UserDiet.objects.bulk_create([
                 UserDiet(user=user, diet=diet)
@@ -68,7 +56,6 @@ class ProfileView(APIView):
 
         # allergies
         if 'allergies' in data:
-            print("saving allergies:", data['allergies'])
             UserAllergy.objects.filter(user=user).delete()
             UserAllergy.objects.bulk_create([
                 UserAllergy(user=user, allergy=allergy)
@@ -77,7 +64,6 @@ class ProfileView(APIView):
 
         profile.refresh_from_db()
         response_data = ProfileSerializer(profile, context={'request': request}).data
-        print("response:", response_data)
         return Response(response_data)
 
 
