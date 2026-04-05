@@ -10,6 +10,7 @@ urlpatterns = [
     path("chatbot/", include("chatbot.urls")),
     path("likes/", include("likes.urls")),
     path("profiles/", include("profiles.urls")),
+     path("mealplanner/", include("meal_planner.urls")),
 ]
 
 if settings.DEBUG:

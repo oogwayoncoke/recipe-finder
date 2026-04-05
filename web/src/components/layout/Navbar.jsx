@@ -173,7 +173,12 @@ export default function Navbar() {
                   zIndex: 50,
                 }}
               >
-                {[["Profile", "/profile"]].map(([label, path]) => (
+                {[
+                  ["Discover", "/discover"],
+                  ["Meal Planner", "/meal-planner"],
+                  ["Grocery List", "/grocery-list"],
+                  ["Profile", "/profile"],
+                ].map(([label, path]) => (
                   <button
                     key={label}
                     onClick={() => {

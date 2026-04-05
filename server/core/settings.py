@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "chatbot",
     "likes",
     "profiles",
+    "meal_planner",
 ]
 
 SITE_ID = 1
@@ -76,7 +77,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
-
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
