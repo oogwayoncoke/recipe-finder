@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "chatbot",
     "likes",
     "profiles",
+    "meal_planner",
 ]
 
 SITE_ID = 1
