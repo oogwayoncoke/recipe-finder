@@ -10,20 +10,12 @@ from .serializers import (
 )
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
-
 def _get_or_create_profile(user):
     profile, _ = UserProfile.objects.get_or_create(user=user)
     return profile
 
 
-# ── Profile ───────────────────────────────────────────────────────────────────
-
 class ProfileView(APIView):
-    """
-    GET   /profiles/me/   → return the authenticated user's full profile
-    PATCH /profiles/me/   → update bio, username, diets, and/or allergies
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -32,34 +24,51 @@ class ProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
+        print("=== PATCH /profiles/me/ hit ===")
+        print("user:", request.user)
+        print("data received:", request.data)
+
         serializer = ProfileUpdateSerializer(
             data=request.data, context={'request': request}
         )
-        serializer.is_valid(raise_exception=True)
+
+        if not serializer.is_valid():
+            print("serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         data    = serializer.validated_data
         user    = request.user
         profile = _get_or_create_profile(user)
 
-        # ── bio ──────────────────────────────────────────────
+        print("validated data:", data)
+        print("profile id:", profile.id, "current bio:", repr(profile.bio))
+
+        # bio
         if 'bio' in data:
+            print("saving bio:", repr(data['bio']))
             profile.bio = data['bio']
-            profile.save(update_fields=['bio', 'updated_at'])
+            profile.save()
+            profile.refresh_from_db()
+            print("bio after save:", repr(profile.bio))
 
-        # ── username ─────────────────────────────────────────
+        # username
         if 'username' in data:
+            print("saving username:", repr(data['username']))
             user.username = data['username']
-            user.save(update_fields=['username'])
+            user.save()
 
-        # ── diets — replace the user's full diet set ──────────
+        # diets
         if 'diets' in data:
+            print("saving diets:", data['diets'])
             UserDiet.objects.filter(user=user).delete()
             UserDiet.objects.bulk_create([
                 UserDiet(user=user, diet=diet)
                 for diet in data['diets']
             ])
 
-        # ── allergies — replace the user's full allergy set ──
+        # allergies
         if 'allergies' in data:
+            print("saving allergies:", data['allergies'])
             UserAllergy.objects.filter(user=user).delete()
             UserAllergy.objects.bulk_create([
                 UserAllergy(user=user, allergy=allergy)
@@ -67,18 +76,12 @@ class ProfileView(APIView):
             ])
 
         profile.refresh_from_db()
-        return Response(
-            ProfileSerializer(profile, context={'request': request}).data
-        )
+        response_data = ProfileSerializer(profile, context={'request': request}).data
+        print("response:", response_data)
+        return Response(response_data)
 
-
-# ── Avatar ────────────────────────────────────────────────────────────────────
 
 class AvatarView(APIView):
-    """
-    POST   /profiles/me/avatar/  → upload a new avatar (multipart/form-data)
-    DELETE /profiles/me/avatar/  → remove avatar
-    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -104,12 +107,11 @@ class AvatarView(APIView):
 
         profile = _get_or_create_profile(request.user)
 
-        # Delete old file from disk before replacing
         if profile.avatar:
             profile.avatar.delete(save=False)
 
         profile.avatar = avatar
-        profile.save(update_fields=['avatar', 'updated_at'])
+        profile.save()
 
         return Response(
             ProfileSerializer(profile, context={'request': request}).data,
@@ -121,19 +123,11 @@ class AvatarView(APIView):
         if profile.avatar:
             profile.avatar.delete(save=False)
             profile.avatar = None
-            profile.save(update_fields=['avatar', 'updated_at'])
+            profile.save()
         return Response({'message': 'Avatar removed.'}, status=status.HTTP_200_OK)
 
 
-# ── Diet & Allergy option lists (public — used by onboarding dropdowns) ───────
-
 class DietListView(APIView):
-    """
-    GET /profiles/diets/
-    Returns all available diet options.
-    Public — no auth needed so the onboarding screen can load them
-    before the user has signed in.
-    """
     permission_classes     = [AllowAny]
     authentication_classes = []
 
@@ -143,10 +137,6 @@ class DietListView(APIView):
 
 
 class AllergyListView(APIView):
-    """
-    GET /profiles/allergies/
-    Returns all available allergy options. Public for the same reason.
-    """
     permission_classes     = [AllowAny]
     authentication_classes = []
 
