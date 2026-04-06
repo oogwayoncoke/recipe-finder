@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views.creat_user import UserRegisterView, ConfirmEmailView, MyTokenObtainPairView
+from .views.create_user import UserRegisterView, ConfirmEmailView, MyTokenObtainPairView
 from .views.google import GoogleLoginView
 from .views.password_reset import PasswordResetRequestView, PasswordResetConfirmView
 

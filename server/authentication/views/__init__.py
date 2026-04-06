@@ -1,4 +1,4 @@
-from .creat_user import ConfirmEmailView, MyTokenObtainPairView, UserRegisterView
+from .create_user import ConfirmEmailView, MyTokenObtainPairView, UserRegisterView
 
 __all__ = [
     "AvatarUploadView",

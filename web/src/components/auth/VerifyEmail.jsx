@@ -27,24 +27,23 @@ export default function VerifyEmail() {
 
         // IF FAILED: Go directly to login
         if (!res.ok || data.error) {
+          console.error("Verification failed:", data.error);
           navigate("/login", { replace: true });
           return;
         }
 
-        // IF SUCCESS: The link is valid. Auto-login by saving the tokens.
-        if (data.access || data.key || data.token) {
-          const accessToken = data.access || data.key || data.token;
-          localStorage.setItem("access", accessToken);
-          if (data.refresh) localStorage.setItem("refresh", data.refresh);
+        // IF SUCCESS: Auto-login by saving the tokens our backend generated
+        if (data.access && data.refresh) {
+          localStorage.setItem("access", data.access);
+          localStorage.setItem("refresh", data.refresh);
         }
 
-        // Send them straight to diet setup.
-        // (If tokens were saved, they will stay here. If no tokens were returned
-        // by your backend, your app's router will likely bounce them to /login).
+        // Send them straight to diet setup now that they are authenticated
         navigate("/diet-setup", { replace: true });
       })
-      .catch(() => {
+      .catch((err) => {
         // IF FAILED (Network error): Go directly to login
+        console.error("Network error during verification:", err);
         navigate("/login", { replace: true });
       });
   }, [key, navigate]);
@@ -62,7 +61,7 @@ export default function VerifyEmail() {
         overflow: "hidden",
       }}
     >
-      {/* Decorative circles from GetStartedPage */}
+      {/* Decorative circles */}
       <div
         style={{
           position: "absolute",
@@ -92,7 +91,7 @@ export default function VerifyEmail() {
             }}
           />
         ))}
-        {/* Soft center glow from GetStartedPage */}
+        {/* Soft center glow */}
         <div
           style={{
             position: "absolute",

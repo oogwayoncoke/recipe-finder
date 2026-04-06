@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+# Assuming this serializer handles your custom token claims
 from ..serializers.generics import MyTokenObtainPairSerializer, UserSerializer
 
 
@@ -23,17 +24,39 @@ class ConfirmEmailView(APIView):
                     {"error": "Invalid key"}, status=status.HTTP_400_BAD_REQUEST
                 )
 
-        if confirmation.email_address.verified:
+        # Get the user associated with this confirmation key
+        email_address = confirmation.email_address
+        user = email_address.user
+
+        # Scenario 1: User is already verified (maybe clicked the link twice)
+        if email_address.verified:
+            refresh = MyTokenObtainPairSerializer.get_token(user)
             return Response(
-                {"message": "Identity Verified"}, status=status.HTTP_200_OK
+                {
+                    "message": "Identity Verified",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                }, 
+                status=status.HTTP_200_OK
             )
 
-        email_address = confirmation.confirm(request)
-        if email_address:
-            user = email_address.user
+        # Scenario 2: First time verification
+        confirmed_email = confirmation.confirm(request)
+        if confirmed_email:
             user.is_active = True
             user.save()
-            return Response({'message': 'Identity Verified'}, status=status.HTTP_200_OK)
+            
+            # Generate JWT tokens for the newly verified user
+            refresh = MyTokenObtainPairSerializer.get_token(user)
+            
+            return Response(
+                {
+                    'message': 'Identity Verified',
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                }, 
+                status=status.HTTP_200_OK
+            )
 
         return Response({'error': 'Confirmation failed'}, status=status.HTTP_400_BAD_REQUEST)
 
