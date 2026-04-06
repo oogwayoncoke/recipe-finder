@@ -1,22 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-const STATUS = {
-  LOADING: "loading",
-  SUCCESS: "success",
-  FAILED: "failed",
-};
-
 export default function VerifyEmail() {
   const { key } = useParams(); // route: /verify-email/:key
   const navigate = useNavigate();
-  const [status, setStatus] = useState(STATUS.LOADING);
 
   useEffect(() => {
+    // If there is no key in the URL, send them straight to login
     if (!key) {
-      setStatus(STATUS.FAILED);
+      navigate("/login", { replace: true });
       return;
     }
 
@@ -30,14 +24,30 @@ export default function VerifyEmail() {
     })
       .then(async (res) => {
         const data = await res.json();
+
+        // IF FAILED: Go directly to login
         if (!res.ok || data.error) {
-          setStatus(STATUS.FAILED);
+          navigate("/login", { replace: true });
           return;
         }
-        setStatus(STATUS.SUCCESS);
+
+        // IF SUCCESS: The link is valid. Auto-login by saving the tokens.
+        if (data.access || data.key || data.token) {
+          const accessToken = data.access || data.key || data.token;
+          localStorage.setItem("access", accessToken);
+          if (data.refresh) localStorage.setItem("refresh", data.refresh);
+        }
+
+        // Send them straight to diet setup.
+        // (If tokens were saved, they will stay here. If no tokens were returned
+        // by your backend, your app's router will likely bounce them to /login).
+        navigate("/diet-setup", { replace: true });
       })
-      .catch(() => setStatus(STATUS.FAILED));
-  }, [key]);
+      .catch(() => {
+        // IF FAILED (Network error): Go directly to login
+        navigate("/login", { replace: true });
+      });
+  }, [key, navigate]);
 
   return (
     <div
@@ -49,22 +59,23 @@ export default function VerifyEmail() {
         justifyContent: "center",
         padding: "2rem",
         position: "relative",
-        overflow: "hidden", // Prevents shapes from creating scrollbars
+        overflow: "hidden",
       }}
     >
-      {/* Decorative background shapes */}
+      {/* Decorative circles from GetStartedPage */}
       <div
         style={{
           position: "absolute",
           inset: 0,
+          overflow: "hidden",
           pointerEvents: "none",
         }}
       >
         {[
-          { size: 280, top: "15%", left: "20%", opacity: 0.06 },
-          { size: 180, top: "75%", left: "80%", opacity: 0.04 },
-          { size: 100, top: "25%", left: "75%", opacity: 0.05 },
-          { size: 60, top: "85%", left: "25%", opacity: 0.08 },
+          { size: 280, top: "8%", left: "55%", opacity: 0.06 },
+          { size: 180, top: "25%", left: "20%", opacity: 0.04 },
+          { size: 100, top: "55%", left: "70%", opacity: 0.05 },
+          { size: 60, top: "15%", left: "35%", opacity: 0.08 },
         ].map((c, i) => (
           <div
             key={i}
@@ -81,17 +92,17 @@ export default function VerifyEmail() {
             }}
           />
         ))}
-        {/* Soft center glow */}
+        {/* Soft center glow from GetStartedPage */}
         <div
           style={{
             position: "absolute",
-            width: 380,
-            height: 380,
+            width: 320,
+            height: 320,
             borderRadius: "50%",
             backgroundColor: "var(--accent)",
-            opacity: 0.03,
-            top: "50%",
-            left: "50%",
+            opacity: 0.04,
+            top: "30%",
+            left: "60%",
             transform: "translate(-50%, -50%)",
           }}
         />
@@ -103,7 +114,7 @@ export default function VerifyEmail() {
         style={{
           width: "100%",
           maxWidth: "24rem",
-          position: "relative", // Keep content above the background shapes
+          position: "relative",
           zIndex: 10,
         }}
       >
@@ -125,7 +136,7 @@ export default function VerifyEmail() {
           </span>
         </div>
 
-        {/* Card */}
+        {/* Loading Card */}
         <div
           style={{
             backgroundColor: "var(--bg-card)",
@@ -136,163 +147,27 @@ export default function VerifyEmail() {
             boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
           }}
         >
-          {status === STATUS.LOADING && (
-            <>
-              <Spinner />
-              <h2
-                style={{
-                  fontFamily: "serif",
-                  fontSize: "1.25rem",
-                  color: "var(--text)",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Verifying your email
-              </h2>
-              <p
-                style={{
-                  fontFamily: "monospace",
-                  fontSize: "0.75rem",
-                  color: "var(--text-dim)",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                hang on a second...
-              </p>
-            </>
-          )}
-
-          {status === STATUS.SUCCESS && (
-            <>
-              <div
-                style={{
-                  width: "2.5rem",
-                  height: "2.5rem",
-                  borderRadius: "50%",
-                  backgroundColor:
-                    "color-mix(in srgb, #5a8a5a 15%, transparent)",
-                  border:
-                    "1px solid color-mix(in srgb, #5a8a5a 40%, transparent)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 1rem",
-                  color: "#5a8a5a",
-                  fontFamily: "monospace",
-                }}
-              >
-                ✓
-              </div>
-              <h2
-                style={{
-                  fontFamily: "serif",
-                  fontSize: "1.25rem",
-                  color: "var(--text)",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                You're verified
-              </h2>
-              <p
-                style={{
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: "0.875rem",
-                  color: "var(--text-dim)",
-                  lineHeight: 1.6,
-                  marginBottom: "1.5rem",
-                }}
-              >
-                Your account is active. You can log in now.
-              </p>
-              <button
-                onClick={() => navigate("/login", { replace: true })}
-                style={{
-                  backgroundColor: "var(--accent)",
-                  color: "var(--bg)",
-                  fontFamily: "monospace",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  letterSpacing: "0.05em",
-                  padding: "0.625rem 1.25rem",
-                  borderRadius: "0.25rem",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "opacity 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-              >
-                Go to login →
-              </button>
-            </>
-          )}
-
-          {status === STATUS.FAILED && (
-            <>
-              <div
-                style={{
-                  width: "2.5rem",
-                  height: "2.5rem",
-                  borderRadius: "50%",
-                  backgroundColor:
-                    "color-mix(in srgb, #c0574a 15%, transparent)",
-                  border:
-                    "1px solid color-mix(in srgb, #c0574a 40%, transparent)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "0 auto 1rem",
-                  color: "#c0574a",
-                  fontFamily: "monospace",
-                }}
-              >
-                ✕
-              </div>
-              <h2
-                style={{
-                  fontFamily: "serif",
-                  fontSize: "1.25rem",
-                  color: "var(--text)",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                Link invalid or expired
-              </h2>
-              <p
-                style={{
-                  fontFamily: "Inter, sans-serif",
-                  fontSize: "0.875rem",
-                  color: "var(--text-dim)",
-                  lineHeight: 1.6,
-                  marginBottom: "1.5rem",
-                }}
-              >
-                This verification link has expired or already been used. Try
-                registering again.
-              </p>
-              <button
-                onClick={() => navigate("/login", { replace: true })}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontFamily: "monospace",
-                  fontSize: "0.75rem",
-                  color: "var(--text-dim)",
-                  letterSpacing: "0.05em",
-                  cursor: "pointer",
-                  transition: "color 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.color = "var(--text)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.color = "var(--text-dim)")
-                }
-              >
-                Back to login →
-              </button>
-            </>
-          )}
+          <Spinner />
+          <h2
+            style={{
+              fontFamily: "serif",
+              fontSize: "1.25rem",
+              color: "var(--text)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Verifying your email
+          </h2>
+          <p
+            style={{
+              fontFamily: "monospace",
+              fontSize: "0.75rem",
+              color: "var(--text-dim)",
+              letterSpacing: "0.05em",
+            }}
+          >
+            hang on a second...
+          </p>
         </div>
       </div>
     </div>

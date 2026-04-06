@@ -34,8 +34,6 @@ def _db_search_by_name(query: str, filters: dict, limit: int):
 
     recipes = list(qs.distinct()[:limit])
 
-    # If filters are active but DB returns nothing, force API call
-    # so we don't serve stale unfiltered cache as an empty result
     if has_filters and not recipes:
         return [], 0
 
@@ -134,12 +132,10 @@ def search_by_name(query: str, filters: dict = None):
     filters = filters or {}
     limit   = filters.get('number', 12)
 
-    # DB first
     recipes, total = _db_search_by_name(query, filters, limit)
     if len(recipes) > 0:
         return recipes, total
 
-    # Cache miss — fire complexSearch and prepare for parallel bulk fetch
     params = {
         'apiKey':               _key(),
         'query':                query,
@@ -155,7 +151,6 @@ def search_by_name(query: str, filters: dict = None):
     if not results:
         return [], 0
 
-    # Fire informationBulk in parallel with _persist_basic calls
     ids = ','.join(str(r['id']) for r in results)
 
     with ThreadPoolExecutor(max_workers=2) as ex:
@@ -165,7 +160,6 @@ def search_by_name(query: str, filters: dict = None):
         bulk_data = bulk_future.result()
         recipes   = persist_future.result()
 
-    # Patch accurate times onto already-persisted recipes
     time_map = {item['id']: item.get('readyInMinutes') for item in bulk_data}
     for recipe in recipes:
         accurate_time = time_map.get(recipe.external_id)
@@ -180,12 +174,10 @@ def search_by_ingredients(ingredients: list, filters: dict = None):
     filters = filters or {}
     limit   = filters.get('number', 12)
 
-    # DB first
     recipes, total = _db_search_by_ingredients(ingredients, limit)
     if len(recipes) > 0:
         return recipes, total
 
-    # Cache miss — fire findByIngredients then bulk info in parallel
     ing_params = {
         'apiKey':       _key(),
         'ingredients':  ','.join(ingredients),
@@ -225,6 +217,7 @@ def fetch_recipe_detail(external_id: int):
     _persist_full(recipe, data)
     return recipe
 
+
 def browse(filters: dict = None):
     """Filter-only browse — no query, no external API call."""
     filters = filters or {}
@@ -242,3 +235,32 @@ def browse(filters: dict = None):
     total   = qs.distinct().count()
     recipes = list(qs.distinct().order_by('-id')[:limit])
     return recipes, total
+
+
+def ensure_ingredients(external_id: int) -> Recipe:
+    """
+    Guarantees a recipe has ingredients persisted in the DB.
+    Unlike fetch_recipe_detail, does NOT early-return if instructions
+    are missing — only skips the API call if ingredients already exist.
+    Used by the grocery list to backfill recipes that were cached without
+    full detail (e.g. added to meal plan from a search result card).
+    """
+    try:
+        recipe = Recipe.objects.get(external_id=external_id)
+        if recipe.recipe_ingredients.exists():
+            return recipe  # already have ingredients — nothing to do
+    except Recipe.DoesNotExist:
+        recipe = None
+
+    res = requests.get(
+        f'{BASE_URL}/recipes/{external_id}/information',
+        params={'apiKey': _key(), 'includeNutrition': 'false'},
+        timeout=8,
+    )
+    res.raise_for_status()
+    data = res.json()
+
+    if recipe is None:
+        recipe = _persist_basic(data)
+    _persist_full(recipe, data)
+    return recipe

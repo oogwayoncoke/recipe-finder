@@ -25,7 +25,7 @@ class RecipeListView(APIView):
 
 
 class RecipeSearchView(APIView):
-    """POST /recipes/search/ — public browse, history saved for authed users only."""
+    """POST /recipes/search/ — public browse."""
     permission_classes     = [AllowAny]
     authentication_classes = []
 
@@ -47,13 +47,6 @@ class RecipeSearchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Only log history for authenticated users
-        if request.user and request.user.is_authenticated:
-            History.objects.bulk_create(
-                [History(user=request.user, recipe=r) for r in recipes],
-                ignore_conflicts=True,
-            )
-
         return Response({
             'results': RecipeBasicSerializer(recipes, many=True).data,
             'total':   total,
@@ -66,9 +59,6 @@ class RecipeDetailView(APIView):
     authentication_classes = []
 
     def get(self, request, external_id):
-        # ── Optimization: serve from DB with a single JOIN when fully populated ──
-        # prefetch_related fires two extra queries (ingredients + instructions)
-        # instead of one per row — eliminates the N+1 problem completely.
         try:
             candidate = (
                 Recipe.objects
@@ -80,7 +70,6 @@ class RecipeDetailView(APIView):
                 )
                 .get(external_id=external_id)
             )
-            # If the record already has full detail, skip the Spoonacular call
             if (
                 candidate.recipe_ingredients.exists()
                 and candidate.instructions.exists()
@@ -89,7 +78,6 @@ class RecipeDetailView(APIView):
         except Recipe.DoesNotExist:
             candidate = None
 
-        # Cache miss or incomplete record — fetch from Spoonacular and persist
         try:
             recipe = spoonacular.fetch_recipe_detail(external_id)
         except Exception as e:
@@ -98,7 +86,6 @@ class RecipeDetailView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        # Re-fetch with prefetch_related so the serializer doesn't hit N+1
         try:
             recipe = (
                 Recipe.objects

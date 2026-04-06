@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken # <-- ADDED IMPORT
 
 from ..serializers.generics import MyTokenObtainPairSerializer, UserSerializer
 
@@ -23,17 +24,35 @@ class ConfirmEmailView(APIView):
                     {"error": "Invalid key"}, status=status.HTTP_400_BAD_REQUEST
                 )
 
+        # Path 1: User clicks the link, but they are already verified
         if confirmation.email_address.verified:
+            user = confirmation.email_address.user
+            refresh = RefreshToken.for_user(user) # Generate tokens
             return Response(
-                {"message": "Identity Verified"}, status=status.HTTP_200_OK
+                {
+                    "message": "Identity Verified",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }, 
+                status=status.HTTP_200_OK
             )
 
+        # Path 2: First time verifying
         email_address = confirmation.confirm(request)
         if email_address:
             user = email_address.user
             user.is_active = True
             user.save()
-            return Response({'message': 'Identity Verified'}, status=status.HTTP_200_OK)
+            
+            refresh = RefreshToken.for_user(user) # Generate tokens
+            return Response(
+                {
+                    'message': 'Identity Verified',
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }, 
+                status=status.HTTP_200_OK
+            )
 
         return Response({'error': 'Confirmation failed'}, status=status.HTTP_400_BAD_REQUEST)
 
