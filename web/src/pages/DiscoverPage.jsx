@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Navbar from "../components/layout/Navbar";
+import NutritionPanel from "../components/recipe/NutritionPanel";
 import Sidebar from "../components/layout/Sidebar";
 import RecipeGrid from "../components/recipe/RecipeGrid";
 import SearchPanel from "../components/search/SearchPanel";
@@ -25,7 +26,6 @@ export default function DiscoverPage() {
   const [selected, setSelected] = useState(null);
   const [detailLoading, setDL] = useState(false);
 
-  // Set of external_ids the user has saved — drives heart icon state on every card
   const [favourites, setFavourites] = useState(new Set());
 
   const detailCache = useRef({});
@@ -38,7 +38,6 @@ export default function DiscoverPage() {
 
   const isLoggedIn = !!localStorage.getItem("access");
 
-  // ── Initial recipe load ────────────────────────────────────────────────────
   useEffect(() => {
     async function loadInitial() {
       setLoading(true);
@@ -61,15 +60,11 @@ export default function DiscoverPage() {
     loadInitial();
   }, []);
 
-  // ── Fetch saved favourites on mount (logged-in only) ──────────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
     async function loadFavourites() {
       try {
-        // CHANGED: Endpoint updated to /likes/
-        const res = await fetch(`${API}/likes/`, {
-          headers: getAuthHeader(),
-        });
+        const res = await fetch(`${API}/likes/`, { headers: getAuthHeader() });
         if (res.ok) {
           const data = await res.json();
           const ids = new Set(data.map((f) => f.recipe.external_id));
@@ -80,12 +75,10 @@ export default function DiscoverPage() {
     loadFavourites();
   }, [isLoggedIn]);
 
-  // ── Toggle heart on a card ─────────────────────────────────────────────────
   async function handleToggleFavourite(recipe) {
     const id = recipe.external_id;
     const wasSaved = favourites.has(id);
 
-    // Optimistic update — flip immediately so the UI feels instant
     setFavourites((prev) => {
       const next = new Set(prev);
       wasSaved ? next.delete(id) : next.add(id);
@@ -93,22 +86,14 @@ export default function DiscoverPage() {
     });
 
     try {
-      // CHANGED: Endpoint updated to /likes/ and added POST body data
       const res = await fetch(`${API}/likes/recipes/${id}/`, {
         method: wasSaved ? "DELETE" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeader(),
-        },
+        headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: wasSaved
           ? null
-          : JSON.stringify({
-              title: recipe.title,
-              image_url: recipe.image_url,
-            }),
+          : JSON.stringify({ title: recipe.title, image_url: recipe.image_url }),
       });
 
-      // Roll back if the request failed
       if (!res.ok && res.status !== 204) {
         setFavourites((prev) => {
           const next = new Set(prev);
@@ -117,7 +102,6 @@ export default function DiscoverPage() {
         });
       }
     } catch {
-      // Network error — roll back
       setFavourites((prev) => {
         const next = new Set(prev);
         wasSaved ? next.add(id) : next.delete(id);
@@ -126,7 +110,6 @@ export default function DiscoverPage() {
     }
   }
 
-  // ── Hover prefetch ─────────────────────────────────────────────────────────
   function handleCardHover(recipe) {
     const id = recipe.external_id;
     if (!id || detailCache.current[id] || prefetchAborts.current[id]) return;
@@ -141,9 +124,7 @@ export default function DiscoverPage() {
         if (data) detailCache.current[id] = data;
       })
       .catch(() => {})
-      .finally(() => {
-        delete prefetchAborts.current[id];
-      });
+      .finally(() => { delete prefetchAborts.current[id]; });
   }
 
   function handleCardHoverEnd(recipe) {
@@ -154,7 +135,6 @@ export default function DiscoverPage() {
     }
   }
 
-  // ── Open modal ─────────────────────────────────────────────────────────────
   async function handleCardClick(recipe) {
     const id = recipe.external_id;
 
@@ -168,9 +148,7 @@ export default function DiscoverPage() {
     setDL(true);
 
     try {
-      const res = await fetch(`${API}/recipes/${id}/`, {
-        headers: getAuthHeader(),
-      });
+      const res = await fetch(`${API}/recipes/${id}/`, { headers: getAuthHeader() });
       if (res.ok) {
         const full = await res.json();
         detailCache.current[id] = full;
@@ -192,10 +170,7 @@ export default function DiscoverPage() {
     ...(filters.cuisine ?? []).map((c) => ({
       label: c,
       remove: () =>
-        setFilters((f) => ({
-          ...f,
-          cuisine: f.cuisine.filter((x) => x !== c),
-        })),
+        setFilters((f) => ({ ...f, cuisine: f.cuisine.filter((x) => x !== c) })),
     })),
     filters.maxTime !== "any" && {
       label: `< ${filters.maxTime} min`,
@@ -253,10 +228,7 @@ export default function DiscoverPage() {
           <div className="animate-fade-up" style={{ animationDelay: "0.05s" }}>
             <SearchPanel
               filters={filters}
-              onResults={(r, t) => {
-                setRecipes(r);
-                setTotal(t);
-              }}
+              onResults={(r, t) => { setRecipes(r); setTotal(t); }}
               onLoading={setLoading}
             />
           </div>
@@ -448,8 +420,9 @@ function RecipeModal({
   isFavourited,
   onToggleFavourite,
 }) {
-  const hasIngredients = (recipe.ingredients ?? []).length > 0;
-  const hasInstructions = (recipe.instructions ?? []).length > 0;
+  const hasIngredients  = (recipe.ingredients   ?? []).length > 0;
+  const hasInstructions = (recipe.instructions  ?? []).length > 0;
+  const hasNutrition    = recipe.nutrition != null;
 
   return (
     <div
@@ -553,13 +526,10 @@ function RecipeModal({
             {recipe.title}
           </h2>
 
-          {/* Heart button in modal header */}
           {onToggleFavourite && (
             <button
               onClick={() => onToggleFavourite(recipe)}
-              title={
-                isFavourited ? "Remove from favourites" : "Save to favourites"
-              }
+              title={isFavourited ? "Remove from favourites" : "Save to favourites"}
               style={{
                 width: "2.5rem",
                 height: "2.5rem",
@@ -612,12 +582,7 @@ function RecipeModal({
             style={{ display: "flex", gap: "1.5rem", marginBottom: "1.25rem" }}
           >
             {[
-              [
-                "Time",
-                recipe.ready_in_minutes
-                  ? `${recipe.ready_in_minutes} min`
-                  : "—",
-              ],
+              ["Time", recipe.ready_in_minutes ? `${recipe.ready_in_minutes} min` : "—"],
               ["Servings", recipe.servings ?? "—"],
             ].map(([label, val]) => (
               <div key={label}>
@@ -699,6 +664,12 @@ function RecipeModal({
               ))}
             </div>
           )}
+
+          {/* ── Nutrition section ── */}
+          <NutritionPanel
+            nutrition={recipe.nutrition ?? null}
+            loading={loading && !hasNutrition}
+          />
 
           {/* Ingredients */}
           <div

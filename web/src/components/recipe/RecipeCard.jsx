@@ -7,12 +7,13 @@ export default function RecipeCard({
   isFavourited = false,
   onToggleFavourite,
 }) {
-  const image = recipe.image_url;
-  const time = recipe.ready_in_minutes;
-  const tags = (recipe.tags ?? []).slice(0, 3);
+  const image      = recipe.image_url;
+  const time       = recipe.ready_in_minutes;
+  const tags       = (recipe.tags ?? []).slice(0, 3);
+  const nutrition  = recipe.nutrition ?? null;
 
   function handleHeartClick(e) {
-    e.stopPropagation(); // don't open the modal
+    e.stopPropagation();
     onToggleFavourite?.(recipe);
   }
 
@@ -77,7 +78,48 @@ export default function RecipeCard({
             </div>
           )}
 
-          {/* Heart button — only renders when onToggleFavourite is provided (logged-in users) */}
+          {/* Nutrition pill overlay — top-left when data exists */}
+          {nutrition?.calories != null && (
+            <div
+              style={{
+                position: "absolute",
+                top: "0.4rem",
+                left: "0.4rem",
+                backgroundColor: "rgba(10,10,9,0.72)",
+                backdropFilter: "blur(4px)",
+                border: "1px solid rgba(212,168,67,0.25)",
+                borderRadius: "0.2rem",
+                padding: "0.15rem 0.45rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.25rem",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "0.575rem",
+                  color: "var(--accent)",
+                  letterSpacing: "0.04em",
+                  fontWeight: 500,
+                }}
+              >
+                {Math.round(nutrition.calories)}
+              </span>
+              <span
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "0.5rem",
+                  color: "rgba(212,168,67,0.6)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                kcal
+              </span>
+            </div>
+          )}
+
+          {/* Heart button */}
           {onToggleFavourite && (
             <button
               onClick={handleHeartClick}
@@ -143,7 +185,12 @@ export default function RecipeCard({
             {`● ${time ? `${time} min` : "—"}  ● ${recipe.servings ?? "—"} srv`}
           </p>
 
-          {tags.length > 0 && (
+          {/* Macro row — only shown when nutrition data is available */}
+          {nutrition && (
+            <MacroRow nutrition={nutrition} />
+          )}
+
+          {!nutrition && tags.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
               {tags.map((tag) => (
                 <span
@@ -188,6 +235,67 @@ export default function RecipeCard({
       >
         view recipe
       </button>
+    </div>
+  );
+}
+
+// ── Macro row ─────────────────────────────────────────────────────────────────
+const MACROS = [
+  { key: "protein", label: "P", color: "#5a8a5a", title: "Protein" },
+  { key: "carbs",   label: "C", color: "#6a7aaa", title: "Carbs"   },
+  { key: "fat",     label: "F", color: "#c09040", title: "Fat"     },
+];
+
+function MacroRow({ nutrition }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "0.375rem",
+        marginTop: "0.125rem",
+      }}
+    >
+      {MACROS.map(({ key, label, color, title }) => {
+        const val = nutrition[key];
+        if (val == null) return null;
+        return (
+          <div
+            key={key}
+            title={`${title}: ${val}g`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.2rem",
+              backgroundColor: `${color}18`,
+              border: `1px solid ${color}33`,
+              borderRadius: "0.15rem",
+              padding: "0.15rem 0.375rem",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: "0.5rem",
+                color: color,
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+              }}
+            >
+              {label}
+            </span>
+            <span
+              style={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: "0.575rem",
+                color: `${color}cc`,
+                letterSpacing: "0.03em",
+              }}
+            >
+              {Math.round(val)}g
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
