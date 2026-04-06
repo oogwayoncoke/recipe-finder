@@ -5,12 +5,8 @@ from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
-from authentication.models import UserProfile
-
 User = get_user_model()
 
-
-# ── Registration ──────────────────────────────────────────────────────────────
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
@@ -54,7 +50,6 @@ class UserSerializer(serializers.ModelSerializer):
             is_active=False,
         )
 
-        # Create allauth email record and fire confirmation email
         email_obj, _ = EmailAddress.objects.get_or_create(
             user=user,
             email=user.email,
@@ -65,14 +60,11 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-# ── Token (login) ─────────────────────────────────────────────────────────────
-
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.USERNAME_FIELD  # 'email'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Accept either email or username — both optional individually
         self.fields['username'] = serializers.CharField(required=False)
         self.fields['email']    = serializers.EmailField(required=False)
         self.fields['password'] = serializers.CharField(write_only=True)
@@ -82,7 +74,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs.get('username')
         password = attrs.get('password')
 
-        # Resolve email from username if that's what was sent
         if not email and username:
             try:
                 email = User.objects.get(username=username).email
@@ -114,46 +105,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @classmethod
     def get_token(cls, user):
-        token = super().get_token(user)
-        
-        # Add these two lines
+        token            = super().get_token(user)
         token['username'] = user.username
         token['email']    = user.email
-        
-        profile = getattr(user, 'profile', None)
-        if profile:
-            token['dietary_preferences'] = profile.get_dietary_list()
-            token['allergies']           = profile.get_allergy_list()
-        else:
-            token['dietary_preferences'] = []
-            token['allergies']           = []
         return token
-
-
-# ── Profile ───────────────────────────────────────────────────────────────────
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    username            = serializers.ReadOnlyField(source='user.username')
-    email               = serializers.ReadOnlyField(source='user.email')
-    dietary_preferences = serializers.SerializerMethodField()
-    allergies           = serializers.SerializerMethodField()
-    avatar_url          = serializers.SerializerMethodField()
-
-    class Meta:
-        model  = UserProfile
-        fields = [
-            'username', 'email', 'bio', 'avatar_url',
-            'dietary_preferences', 'allergies', 'updated_at',
-        ]
-
-    def get_dietary_preferences(self, obj):
-        return obj.get_dietary_list()
-
-    def get_allergies(self, obj):
-        return obj.get_allergy_list()
-
-    def get_avatar_url(self, obj):
-        request = self.context.get('request')
-        if obj.avatar and request:
-            return request.build_absolute_uri(obj.avatar.url)
-        return None
