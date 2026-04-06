@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api";
 import Navbar from "../components/layout/Navbar";
+import { useToast } from "../context/ToastContext";
 
 const DIET_OPTIONS = [
   { label: "Vegan", value: "vegan" },
@@ -41,16 +42,13 @@ const INPUT = {
   transition: "border-color 0.15s",
 };
 
-
-// ── Password reset panel ──────────────────────────────────────────────────────
 function PasswordResetPanel({ email }) {
+  const { showToast } = useToast();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState(null);
 
   async function handleReset() {
     setSending(true);
-    setError(null);
     try {
       const token = localStorage.getItem("access");
       const res = await fetch(`${API}/authentication/password-reset/`, {
@@ -64,8 +62,9 @@ function PasswordResetPanel({ email }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
       setSent(true);
+      showToast("Password reset link sent — check your email.", "success");
     } catch (e) {
-      setError(e.message);
+      showToast(e.message, "error");
     } finally {
       setSending(false);
     }
@@ -120,17 +119,6 @@ function PasswordResetPanel({ email }) {
         We'll send a reset link to{" "}
         <span style={{ color: "var(--text)" }}>{email}</span>.
       </p>
-      {error && (
-        <p
-          style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: "0.72rem",
-            color: "var(--error)",
-          }}
-        >
-          ✕ {error}
-        </p>
-      )}
       <button
         type="button"
         onClick={handleReset}
@@ -166,7 +154,6 @@ function PasswordResetPanel({ email }) {
   );
 }
 
-// ── Pill toggle grid ──────────────────────────────────────────────────────────
 function OptionGrid({ options, selected, onToggle, accent = false }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -212,7 +199,6 @@ function OptionGrid({ options, selected, onToggle, accent = false }) {
   );
 }
 
-// ── Section wrapper — NO animation to avoid invisible elements ────────────────
 function Section({ label, children }) {
   return (
     <div style={{ marginBottom: "2.25rem" }}>
@@ -249,7 +235,6 @@ function Section({ label, children }) {
   );
 }
 
-// ── Shimmer skeleton ──────────────────────────────────────────────────────────
 function Skeleton() {
   return (
     <div>
@@ -305,8 +290,8 @@ function Skeleton() {
   );
 }
 
-// ── Avatar uploader ───────────────────────────────────────────────────────────
 function AvatarUploader({ avatarUrl, initial, onUploaded, onRemoved }) {
+  const { showToast } = useToast();
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -323,8 +308,9 @@ function AvatarUploader({ avatarUrl, initial, onUploaded, onRemoved }) {
         headers: { "Content-Type": "multipart/form-data" },
       });
       onUploaded(res.data.avatar_url);
+      showToast("Avatar updated.", "success");
     } catch {
-      // silently ignore
+      showToast("Failed to upload avatar. Please try again.", "error");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -337,8 +323,9 @@ function AvatarUploader({ avatarUrl, initial, onUploaded, onRemoved }) {
     try {
       await api.delete("/profiles/me/avatar/");
       onRemoved();
+      showToast("Avatar removed.", "info");
     } catch {
-      // silently ignore
+      showToast("Failed to remove avatar.", "error");
     } finally {
       setRemoving(false);
     }
@@ -477,11 +464,10 @@ function AvatarUploader({ avatarUrl, initial, onUploaded, onRemoved }) {
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function ProfilePage() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -495,7 +481,6 @@ export default function ProfilePage() {
   const dietsRef = useRef([]);
   const allergiesRef = useRef([]);
 
-  // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     api
@@ -503,12 +488,10 @@ export default function ProfilePage() {
       .then((res) => {
         if (cancelled) return;
         const d = res.data;
-
         const loadedUsername = d.username ?? "";
         const loadedBio = d.bio ?? "";
         const loadedDiets = (d.diets ?? []).map((x) => x.toLowerCase());
         const loadedAllergies = (d.allergies ?? []).map((x) => x.toLowerCase());
-
         setAvatarUrl(d.avatar_url ?? null);
         setUsername(loadedUsername);
         setEmail(d.email ?? "");
@@ -516,21 +499,21 @@ export default function ProfilePage() {
         setDiets(loadedDiets);
         setAllergies(loadedAllergies);
         setUpdatedAt(d.updated_at ?? null);
-
         usernameRef.current = loadedUsername;
         bioRef.current = loadedBio;
         dietsRef.current = loadedDiets;
         allergiesRef.current = loadedAllergies;
       })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error("profile load error:", err);
-        setMessage({ type: "error", text: "Failed to load profile." });
+      .catch(() => {
+        if (!cancelled)
+          showToast(
+            "Failed to load profile. Please refresh the page.",
+            "error",
+          );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-
     return () => {
       cancelled = true;
     };
@@ -554,39 +537,32 @@ export default function ProfilePage() {
     setAllergies(next);
   }, []);
 
-  // ── Save ──────────────────────────────────────────────────────────────────
   async function handleSave() {
     setSaving(true);
-    setMessage(null);
-
     const payload = {
       username: usernameRef.current,
       bio: bioRef.current,
       diets: dietsRef.current,
       allergies: allergiesRef.current,
     };
-
     try {
       const res = await api.patch("profiles/me/", payload);
       const d = res.data;
-
       const savedUsername = d.username ?? usernameRef.current;
       const savedBio = d.bio ?? bioRef.current;
-
       setUsername(savedUsername);
       setBio(savedBio);
       usernameRef.current = savedUsername;
       bioRef.current = savedBio;
       setUpdatedAt(d.updated_at ?? updatedAt);
-      setMessage({ type: "success", text: "Profile saved." });
+      showToast("Profile saved successfully.", "success");
     } catch (err) {
-      console.error("PATCH error:", err?.response?.data ?? err);
       const detail = err.response?.data;
       const msg =
         typeof detail === "object"
           ? Object.values(detail).flat().join(" ")
           : "Failed to save. Please try again.";
-      setMessage({ type: "error", text: msg });
+      showToast(msg, "error");
     } finally {
       setSaving(false);
     }
@@ -602,16 +578,11 @@ export default function ProfilePage() {
       }}
     >
       <style>{`
-        @keyframes pfFadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes pfFadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .pf-save:hover:not(:disabled) { opacity: 0.85; }
         .pf-save { transition: opacity 0.15s; }
       `}</style>
-
       <Navbar />
-
       <main
         style={{
           flex: 1,
@@ -625,7 +596,6 @@ export default function ProfilePage() {
           <Skeleton />
         ) : (
           <>
-            {/* ── Header ─────────────────────────────────────────────────── */}
             <div
               style={{
                 animation: "pfFadeUp 0.4s ease both",
@@ -702,7 +672,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* ── Username ───────────────────────────────────────────────── */}
             <Section label="USERNAME">
               <input
                 value={username}
@@ -719,7 +688,6 @@ export default function ProfilePage() {
               />
             </Section>
 
-            {/* ── Bio ────────────────────────────────────────────────────── */}
             <Section label="BIO">
               <textarea
                 value={bio}
@@ -754,7 +722,6 @@ export default function ProfilePage() {
               </div>
             </Section>
 
-            {/* ── Dietary preferences ────────────────────────────────────── */}
             <Section label="DIETARY PREFERENCES">
               <OptionGrid
                 options={DIET_OPTIONS}
@@ -764,7 +731,6 @@ export default function ProfilePage() {
               />
             </Section>
 
-            {/* ── Allergies ──────────────────────────────────────────────── */}
             <Section label="ALLERGIES">
               <OptionGrid
                 options={ALLERGY_OPTIONS}
@@ -773,12 +739,10 @@ export default function ProfilePage() {
               />
             </Section>
 
-            {/* ── Password reset ─────────────────────────────────────────── */}
             <Section label="PASSWORD">
               <PasswordResetPanel email={email} />
             </Section>
 
-            {/* ── Save row — no animation, no z-index issues ─────────────── */}
             <div
               style={{
                 display: "flex",
@@ -809,22 +773,6 @@ export default function ProfilePage() {
               >
                 {saving ? "Saving…" : "Save changes →"}
               </button>
-
-              {message && (
-                <span
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "0.75rem",
-                    color:
-                      message.type === "success"
-                        ? "var(--success)"
-                        : "var(--error)",
-                  }}
-                >
-                  {message.type === "success" ? "✓ " : "✕ "}
-                  {message.text}
-                </span>
-              )}
             </div>
           </>
         )}

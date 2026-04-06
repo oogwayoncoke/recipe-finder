@@ -1,12 +1,71 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
+function CompassIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+function BasketIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <path d="M16 10a4 4 0 01-8 0" />
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -22,6 +81,12 @@ export default function Navbar() {
   const isGuest = !user;
   const initial = user?.username?.[0]?.toUpperCase() ?? "?";
   const username = user?.username ?? "guest";
+
+  const navTabs = [
+    { label: "Discover", path: "/discover", icon: <CompassIcon /> },
+    { label: "Meal Planner", path: "/meal-planner", icon: <CalendarIcon /> },
+    { label: "Grocery List", path: "/grocery-list", icon: <BasketIcon /> },
+  ];
 
   return (
     <nav
@@ -39,20 +104,69 @@ export default function Navbar() {
         flexShrink: 0,
       }}
     >
-      {/* Logo */}
-      <div
-        style={{
-          fontFamily: "Inter, sans-serif",
-          fontSize: "1.375rem",
-          color: "var(--text)",
-          letterSpacing: "-0.01em",
-          cursor: "pointer",
-        }}
-        onClick={() => navigate("/discover")}
-      >
-        di<span style={{ color: "var(--accent)" }}>sh</span>
+      {/* Left — Logo + tabs */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+        {/* Logo */}
+        <div
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: "1.375rem",
+            color: "var(--text)",
+            letterSpacing: "-0.01em",
+            cursor: "pointer",
+            marginRight: "1rem",
+          }}
+          onClick={() => navigate("/discover")}
+        >
+          di<span style={{ color: "var(--accent)" }}>sh</span>
+        </div>
+
+        {/* Nav tabs */}
+        {navTabs.map(({ label, path, icon }) => {
+          const active = location.pathname === path;
+          return (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              title={label}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+                padding: "0.375rem 0.75rem",
+                borderRadius: "0.25rem",
+                border: active
+                  ? "1px solid var(--border-2)"
+                  : "1px solid transparent",
+                backgroundColor: active ? "var(--bg-hover)" : "transparent",
+                color: active ? "var(--accent)" : "var(--text-dim)",
+                fontFamily: "Inter, sans-serif",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = "var(--bg-hover)";
+                  e.currentTarget.style.color = "var(--text)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--text-dim)";
+                }
+              }}
+            >
+              {icon}
+              {label}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Right — theme toggle, auth */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
         {/* Theme toggle */}
         <button
@@ -173,40 +287,31 @@ export default function Navbar() {
                   zIndex: 50,
                 }}
               >
-                {[
-                  ["Discover", "/discover"],
-                  ["Meal Planner", "/meal-planner"],
-                  ["Grocery List", "/grocery-list"],
-                  ["Profile", "/profile"],
-                ].map(([label, path]) => (
-                  <button
-                    key={label}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      navigate(path);
-                    }}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "0.625rem 1rem",
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: "0.75rem",
-                      color: "var(--text-muted)",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor =
-                        "var(--bg-hover)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor = "transparent")
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigate("/profile");
+                  }}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "0.625rem 1rem",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "0.75rem",
+                    color: "var(--text-muted)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = "var(--bg-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = "transparent")
+                  }
+                >
+                  Profile
+                </button>
                 <div style={{ borderTop: "1px solid var(--border)" }} />
                 <button
                   onClick={() => {
