@@ -1,11 +1,13 @@
 """
 Spoonacular API client.
 DB-first + parallel API calls via ThreadPoolExecutor.
+Nutrition is fetched from Spoonacular directly (includeNutrition=true)
+and persisted to the Nutrition table alongside ingredients and instructions.
 """
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from django.conf import settings
-from .models import Recipe, Instructions, Ingredient, RecipeIngredient, Tag, RecipeTag
+from .models import Recipe, Instructions, Ingredient, RecipeIngredient, Tag, RecipeTag, Nutrition
 
 BASE_URL = 'https://api.spoonacular.com'
 
@@ -70,6 +72,40 @@ def _persist_basic(data: dict) -> Recipe:
     return recipe
 
 
+def _persist_nutrition(recipe: Recipe, data: dict) -> None:
+    """
+    Extract macro nutrients from a Spoonacular response that was fetched
+    with includeNutrition=true and write them to the Nutrition table.
+    """
+    nutrition_block = data.get('nutrition', {})
+    nutrients_list  = nutrition_block.get('nutrients', [])
+
+    if not nutrients_list:
+        return
+
+    # Build a quick lookup by nutrient name
+    nutrients = {n['name']: n['amount'] for n in nutrients_list}
+
+    calories = nutrients.get('Calories')
+    protein  = nutrients.get('Protein')
+    carbs    = nutrients.get('Carbohydrates')
+    fat      = nutrients.get('Fat')
+
+    # Only persist if we got at least calories
+    if calories is None:
+        return
+
+    Nutrition.objects.update_or_create(
+        recipe=recipe,
+        defaults={
+            'calories': round(calories, 1),
+            'protein':  round(protein, 1)  if protein  is not None else None,
+            'carbs':    round(carbs, 1)    if carbs    is not None else None,
+            'fat':      round(fat, 1)      if fat      is not None else None,
+        },
+    )
+
+
 def _persist_full(recipe: Recipe, data: dict) -> Recipe:
     real_time = data.get('readyInMinutes')
     if real_time and real_time != 45:
@@ -99,6 +135,10 @@ def _persist_full(recipe: Recipe, data: dict) -> Recipe:
                 ingredient=ingredient,
                 defaults={'amount': metric.get('amount'), 'unit': metric.get('unitShort', '')},
             )
+
+    # Persist nutrition if it came back in this response
+    _persist_nutrition(recipe, data)
+
     return recipe
 
 
@@ -197,16 +237,31 @@ def search_by_ingredients(ingredients: list, filters: dict = None):
 
 
 def fetch_recipe_detail(external_id: int):
+    """
+    Fetch full recipe detail from Spoonacular with nutrition included.
+    Results are cached in the DB — subsequent calls for the same recipe
+    are served from the DB without hitting the API.
+    """
     try:
         recipe = Recipe.objects.get(external_id=external_id)
-        if recipe.recipe_ingredients.exists() and recipe.instructions.exists():
+        has_ingredients  = recipe.recipe_ingredients.exists()
+        has_instructions = recipe.instructions.exists()
+        has_nutrition    = Nutrition.objects.filter(
+            recipe=recipe, calories__isnull=False
+        ).exists()
+
+        # Fully cached — return immediately
+        if has_ingredients and has_instructions and has_nutrition:
             return recipe
+
+        # Partially cached — still need to hit API to get what's missing
+        # (fall through to API call below)
     except Recipe.DoesNotExist:
         recipe = None
 
     res = requests.get(
         f'{BASE_URL}/recipes/{external_id}/information',
-        params={'apiKey': _key(), 'includeNutrition': 'false'},
+        params={'apiKey': _key(), 'includeNutrition': 'true'},
         timeout=8,
     )
     res.raise_for_status()
@@ -215,6 +270,7 @@ def fetch_recipe_detail(external_id: int):
     if recipe is None:
         recipe = _persist_basic(data)
     _persist_full(recipe, data)
+
     return recipe
 
 
@@ -240,21 +296,18 @@ def browse(filters: dict = None):
 def ensure_ingredients(external_id: int) -> Recipe:
     """
     Guarantees a recipe has ingredients persisted in the DB.
-    Unlike fetch_recipe_detail, does NOT early-return if instructions
-    are missing — only skips the API call if ingredients already exist.
-    Used by the grocery list to backfill recipes that were cached without
-    full detail (e.g. added to meal plan from a search result card).
+    Used by the grocery list to backfill recipes added from search cards.
     """
     try:
         recipe = Recipe.objects.get(external_id=external_id)
         if recipe.recipe_ingredients.exists():
-            return recipe  # already have ingredients — nothing to do
+            return recipe
     except Recipe.DoesNotExist:
         recipe = None
 
     res = requests.get(
         f'{BASE_URL}/recipes/{external_id}/information',
-        params={'apiKey': _key(), 'includeNutrition': 'false'},
+        params={'apiKey': _key(), 'includeNutrition': 'true'},
         timeout=8,
     )
     res.raise_for_status()

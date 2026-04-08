@@ -16,13 +16,13 @@ import DiscoverPage from "./pages/DiscoverPage";
 import GetStartedPage from "./pages/GetStartedPage";
 import GoogleCallbackPage from "./pages/GoogleCallbackPage";
 import GroceryListPage from "./pages/GroceryListPage";
+import LikesPage from "./pages/LikesPage";
 import LoginPage from "./pages/LoginPage";
 import MealPlannerPage from "./pages/MealPlannerPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProfilePage from "./pages/ProfilePage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-
 const CHATBOT_HIDE_PREFIXES = [
   "/login",
   "/register",
@@ -68,6 +68,7 @@ export default function App() {
                 <Route path="/meal-planner" element={<MealPlannerPage />} />
                 <Route path="/grocery-list" element={<GroceryListPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/likes" element={<LikesPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

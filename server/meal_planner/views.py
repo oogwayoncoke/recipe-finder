@@ -24,12 +24,7 @@ def _get_or_create_plan(user, week_start):
 class MealPlanView(APIView):
     """
     GET  /mealplanner/?week=YYYY-MM-DD
-        Returns the full plan for the week containing that date.
-        If no plan exists yet, returns an empty one (not saved to DB).
-
     POST /mealplanner/
-        Body: { week_start: "YYYY-MM-DD" }
-        Explicitly creates a plan for that week (idempotent).
     """
     permission_classes = [IsAuthenticated]
 
@@ -44,7 +39,6 @@ class MealPlanView(APIView):
         plan   = MealPlan.objects.filter(user=request.user, week_start=monday).first()
 
         if not plan:
-            # Return an empty shell so the frontend can render the grid
             return Response({'id': None, 'week_start': str(monday), 'entries': []})
 
         return Response(MealPlanSerializer(plan).data)
@@ -63,12 +57,7 @@ class MealPlanView(APIView):
 class MealPlanEntryView(APIView):
     """
     PUT    /mealplanner/entry/
-        Body: { week_start, day, meal_slot, recipe_external_id }
-        Adds or replaces a recipe in a slot.
-
     DELETE /mealplanner/entry/
-        Body: { week_start, day, meal_slot }
-        Removes the recipe from that slot.
     """
     permission_classes = [IsAuthenticated]
 
@@ -77,10 +66,8 @@ class MealPlanEntryView(APIView):
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
 
-        # Resolve recipe
         recipe = get_object_or_404(Recipe, external_id=d['recipe_external_id'])
 
-        # Get or create the plan for that week
         week_param = request.data.get('week_start')
         try:
             date = datetime.date.fromisoformat(week_param) if week_param else datetime.date.today()
@@ -89,7 +76,6 @@ class MealPlanEntryView(APIView):
 
         plan = _get_or_create_plan(request.user, date)
 
-        # Upsert the entry
         entry, _ = MealPlanEntry.objects.update_or_create(
             plan      = plan,
             day       = d['day'],
@@ -125,16 +111,12 @@ class MealPlanEntryView(APIView):
 
 
 # ── Ingredient categories ─────────────────────────────────────────────────────
-# Maps keyword fragments → display category. Checked in order — first match wins.
 CATEGORY_RULES = [
-    # Proteins
     (['chicken','beef','lamb','pork','turkey','bacon','sausage','steak',
       'salmon','tuna','shrimp','prawn','fish','cod','tilapia','anchovy',
       'egg','tofu','tempeh'], 'Proteins'),
-    # Dairy
     (['milk','cream','butter','cheese','yogurt','mozzarella','parmesan',
       'cheddar','feta','ricotta','ghee','kefir'], 'Dairy'),
-    # Produce — vegetables
     (['onion','garlic','tomato','pepper','carrot','celery','spinach',
       'lettuce','cucumber','zucchini','broccoli','cauliflower','mushroom',
       'potato','sweet potato','leek','cabbage','kale','arugula','avocado',
@@ -142,32 +124,25 @@ CATEGORY_RULES = [
       'artichoke','beet','radish','turnip','fennel','shallot','scallion',
       'chive','parsley','cilantro','basil','mint','thyme','rosemary',
       'oregano','dill','sage','tarragon'], 'Produce — Vegetables'),
-    # Produce — fruits
     (['apple','banana','lemon','lime','orange','grape','berry','strawberry',
       'blueberry','raspberry','mango','pineapple','peach','pear','plum',
       'cherry','melon','watermelon','kiwi','fig','date','apricot',
       'pomegranate','coconut'], 'Produce — Fruits'),
-    # Grains & Bread
     (['flour','bread','rice','pasta','noodle','oat','quinoa','barley',
       'couscous','bulgur','tortilla','pita','cracker','breadcrumb',
       'cornstarch','semolina','polenta'], 'Grains & Bread'),
-    # Oils, Sauces & Condiments
     (['oil','vinegar','sauce','ketchup','mustard','mayonnaise','soy sauce',
       'tahini','hummus','pesto','salsa','worcestershire','hot sauce',
       'oyster sauce','fish sauce','hoisin','miso','sriracha'], 'Oils, Sauces & Condiments'),
-    # Spices & Seasonings
     (['salt','pepper','cumin','paprika','turmeric','cinnamon','coriander',
       'cardamom','clove','nutmeg','ginger','chili','cayenne','curry',
       'sumac','za\'atar','allspice','anise','bay leaf','saffron',
       'vanilla','seasoning','spice','powder','flake'], 'Spices & Seasonings'),
-    # Nuts, Seeds & Dried Goods
     (['almond','walnut','cashew','pecan','pistachio','peanut','hazelnut',
       'sesame','sunflower seed','pumpkin seed','chia','flaxseed',
       'raisin','dried','pine nut'], 'Nuts, Seeds & Dried Goods'),
-    # Canned & Packaged
     (['canned','can of','tin','broth','stock','tomato paste','coconut milk',
       'evaporated','condensed'], 'Canned & Packaged'),
-    # Sweeteners & Baking
     (['sugar','honey','maple','syrup','molasses','agave','stevia',
       'baking powder','baking soda','yeast','cocoa','chocolate',
       'confectioner'], 'Sweeteners & Baking'),
@@ -205,24 +180,10 @@ class GroceryListView(APIView):
     """
     GET /mealplanner/grocery-list/?week=YYYY-MM-DD
 
-    Aggregates every ingredient from every recipe in the week's meal plan,
-    deduplicates by (name, unit), sums amounts, then groups by food category.
-
-    Response shape:
-    {
-      "week_start": "2025-03-31",
-      "recipe_count": 6,
-      "categories": [
-        {
-          "name": "Produce — Vegetables",
-          "items": [
-            { "name": "garlic", "amount": 6.0, "unit": "clove", "recipes": ["Pasta", "Shakshuka"] },
-            ...
-          ]
-        },
-        ...
-      ]
-    }
+    Aggregates every ingredient from every recipe in the week's meal plan.
+    If a recipe was added from a search card (no ingredients in DB yet),
+    we backfill from Spoonacular before aggregating so the list is always
+    complete — even on first use.
     """
     permission_classes = [IsAuthenticated]
 
@@ -238,24 +199,50 @@ class GroceryListView(APIView):
 
         if not plan:
             return Response({
-                'week_start':    str(monday),
-                'recipe_count':  0,
-                'categories':    [],
+                'week_start':   str(monday),
+                'recipe_count': 0,
+                'categories':   [],
             })
 
-        # Fetch all entries with their recipe ingredients in two queries
+        # ── Backfill any recipes that are missing ingredients ─────────────────
+        # Pull all entries and check which recipes have no ingredient rows yet.
+        # For each missing one, call ensure_ingredients() which hits Spoonacular
+        # only on a cache miss and persists the result — subsequent calls are free.
+        from recipes import spoonacular  # local import avoids circular deps
         from recipes.models import RecipeIngredient
-        from collections import defaultdict
 
+        entries = list(
+            plan.entries
+            .select_related('recipe')
+            .prefetch_related('recipe__recipe_ingredients')
+        )
+
+        recipes_needing_ingredients = [
+            entry.recipe
+            for entry in entries
+            if not entry.recipe.recipe_ingredients.exists()
+        ]
+
+        for recipe in recipes_needing_ingredients:
+            try:
+                spoonacular.ensure_ingredients(recipe.external_id)
+            except Exception:
+                # If Spoonacular is down or quota is hit, skip gracefully.
+                # That recipe will just contribute 0 ingredients to the list.
+                pass
+
+        # Re-fetch entries with freshly populated ingredients
         entries = (
             plan.entries
             .select_related('recipe')
             .prefetch_related('recipe__recipe_ingredients__ingredient')
         )
 
-        recipe_titles = {}   # recipe_id → title (for the "used in" field)
-        # aggregated: { (name_lower, norm_unit): { amount, unit, name, recipes: set } }
-        aggregated = {}
+        # ── Aggregate ─────────────────────────────────────────────────────────
+        from collections import defaultdict
+
+        recipe_titles = {}
+        aggregated    = {}
 
         for entry in entries:
             recipe = entry.recipe
@@ -278,7 +265,7 @@ class GroceryListView(APIView):
                     aggregated[key]['amount'] += ri.amount
                 aggregated[key]['recipes'].add(recipe.title)
 
-        # Group by category
+        # ── Group by category ─────────────────────────────────────────────────
         category_map = defaultdict(list)
         for item in aggregated.values():
             cat = _categorise(item['name'])
@@ -289,11 +276,9 @@ class GroceryListView(APIView):
                 'recipes': sorted(item['recipes']),
             })
 
-        # Sort items alphabetically within each category
         for cat in category_map:
             category_map[cat].sort(key=lambda x: x['name'].lower())
 
-        # Build ordered category list (known categories first, then Other)
         known_order = [cat for _, cat in CATEGORY_RULES]
         categories  = []
         for cat_name in known_order:

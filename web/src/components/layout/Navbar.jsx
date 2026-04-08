@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
 function CompassIcon() {
   return (
     <svg
@@ -61,6 +60,23 @@ function BasketIcon() {
   );
 }
 
+function HeartIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
@@ -84,9 +100,22 @@ export default function Navbar() {
 
   const navTabs = [
     { label: "Discover", path: "/discover", icon: <CompassIcon /> },
-    { label: "Meal Planner", path: "/meal-planner", icon: <CalendarIcon /> },
-    { label: "Grocery List", path: "/grocery-list", icon: <BasketIcon /> },
+    { label: "Likes", path: "/likes", icon: <HeartIcon />, authOnly: true },
+    {
+      label: "Meal Planner",
+      path: "/meal-planner",
+      icon: <CalendarIcon />,
+      authOnly: true,
+    },
+    {
+      label: "Grocery List",
+      path: "/grocery-list",
+      icon: <BasketIcon />,
+      authOnly: true,
+    },
   ];
+
+  const visibleTabs = navTabs.filter((t) => !t.authOnly || !isGuest);
 
   return (
     <nav
@@ -106,7 +135,6 @@ export default function Navbar() {
     >
       {/* Left — Logo + tabs */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-        {/* Logo */}
         <div
           style={{
             fontFamily: "Inter, sans-serif",
@@ -121,8 +149,7 @@ export default function Navbar() {
           di<span style={{ color: "var(--accent)" }}>sh</span>
         </div>
 
-        {/* Nav tabs */}
-        {navTabs.map(({ label, path, icon }) => {
+        {visibleTabs.map(({ label, path, icon }) => {
           const active = location.pathname === path;
           return (
             <button
@@ -168,7 +195,6 @@ export default function Navbar() {
 
       {/* Right — theme toggle, auth */}
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-        {/* Theme toggle */}
         <button
           onClick={toggle}
           title={dark ? "Light mode" : "Dark mode"}
@@ -194,7 +220,6 @@ export default function Navbar() {
           {dark ? "☀" : "☾"}
         </button>
 
-        {/* Guest login CTA */}
         {isGuest && (
           <button
             onClick={() => navigate("/login")}
@@ -218,7 +243,6 @@ export default function Navbar() {
           </button>
         )}
 
-        {/* User menu */}
         {!isGuest && (
           <div style={{ position: "relative" }} ref={menuRef}>
             <button

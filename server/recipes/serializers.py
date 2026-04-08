@@ -2,25 +2,29 @@ from rest_framework import serializers
 from .models import Recipe, Nutrition, Instructions, RecipeIngredient
 
 
+class NutritionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Nutrition
+        fields = ['calories', 'protein', 'carbs', 'fat']
+
+
 class RecipeBasicSerializer(serializers.ModelSerializer):
-    """Returned on search — fast, no ingredients/instructions."""
-    tags = serializers.SerializerMethodField()
+    """Returned on search — fast, no ingredients/instructions.
+    Includes nutrition when already cached so cards can show macro pills
+    without triggering any extra API calls."""
+    tags      = serializers.SerializerMethodField()
+    nutrition = NutritionSerializer(read_only=True)
 
     class Meta:
         model  = Recipe
         fields = [
             'id', 'external_id', 'title', 'image_url',
             'ready_in_minutes', 'servings', 'tags',
+            'nutrition',
         ]
 
     def get_tags(self, obj):
         return [rt.tag.name for rt in obj.recipe_tags.select_related('tag').all()]
-
-
-class NutritionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = Nutrition
-        fields = ['calories', 'protein', 'carbs', 'fat']
 
 
 class InstructionSerializer(serializers.ModelSerializer):
