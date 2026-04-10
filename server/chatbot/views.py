@@ -1,25 +1,19 @@
 """
 dish – AI Chatbot View
 Calls Claude claude-sonnet-4-20250514 with full user context:
-  - diet & allergy preferences
-  - saved/favourite recipes
-  - browsing & cooking history
-  - current meal plan
+  - diet & allergy preferences  (from UserDiet / UserAllergy junction tables)
+  - saved / favourite recipes   (from likes.UserFavourite)
+  - browsing history            (from localStorage via client context — no DB history table)
+  - current meal plan           (from meal_planner.MealPlan / MealPlanEntry)
   - current page the user is viewing
 """
 
-import json
 import anthropic
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-
-# These imports will resolve once you integrate this into the main app
-# from recipes.models import Recipe, UserFavourite, UserHistory
-# from meal_planner.models import WeekPlan
-# from authentication.models import UserProfile
 
 
 def build_system_prompt(user, user_context: dict) -> str:
@@ -101,6 +95,8 @@ def build_system_prompt(user, user_context: dict) -> str:
         lines.append("")
 
     # ── Browsing / cooking history ─────────────────────────────────────────────
+    # History comes from the client (localStorage via historyTracker.js).
+    # There is no UserHistory DB table – it was removed in migration 0002.
     history = user_context.get("history", [])
     if history:
         lines.append("## Recent recipe history (viewed or cooked)")
@@ -183,7 +179,7 @@ def build_system_prompt(user, user_context: dict) -> str:
 @permission_classes([AllowAny])
 def chat(request):
     """
-    POST /api/chatbot/chat/
+    POST /chatbot/chat/
 
     Body:
     {
@@ -209,67 +205,70 @@ def chat(request):
     conversation_history = data.get("history", [])
     user_context = data.get("context", {})
 
-    # Pull live data from DB if user is authenticated and context is sparse
+    # ── DB enrichment for authenticated users ──────────────────────────────────
+    # Client-sent context always wins — it reflects live UI state.
+    # We only fill in gaps where the client sent nothing.
     user = request.user
     if user.is_authenticated:
-        # Merge DB data with client-sent context (client data takes precedence
-        # since it reflects the current UI state)
         try:
-            from recipes.models import UserFavourite, UserHistory
+            # Favourites — lives in likes.UserFavourite (not recipes.UserFavourite).
+            # Order by saved_at (the actual field name on UserFavourite).
             if not user_context.get("favourites"):
+                from likes.models import UserFavourite
                 favs = (
                     UserFavourite.objects
                     .filter(user=user)
                     .select_related("recipe")
-                    .order_by("-created_at")[:30]
+                    .order_by("-saved_at")[:30]
                 )
                 user_context["favourites"] = [
                     {
                         "title": f.recipe.title,
-                        "cuisine": getattr(f.recipe, "cuisine", ""),
-                        "ready_in_minutes": getattr(f.recipe, "ready_in_minutes", ""),
+                        "cuisine": "",           # Recipe has no cuisine field; tags carry diet/cuisine info
+                        "ready_in_minutes": f.recipe.ready_in_minutes or "",
                     }
                     for f in favs
                 ]
-
-            if not user_context.get("history"):
-                hist = (
-                    UserHistory.objects
-                    .filter(user=user)
-                    .select_related("recipe")
-                    .order_by("-viewed_at")[:15]
-                )
-                user_context["history"] = [
-                    {
-                        "title": h.recipe.title,
-                        "action": getattr(h, "action", "viewed"),
-                    }
-                    for h in hist
-                ]
-
-            if not user_context.get("preferences"):
-                try:
-                    from authentication.models import UserProfile
-                    profile = UserProfile.objects.get(user=user)
-                    user_context["preferences"] = {
-                        "diets":     list(profile.diets.values_list("name", flat=True)),
-                        "allergies": list(profile.allergies.values_list("name", flat=True)),
-                        "cuisines":  list(profile.cuisines.values_list("name", flat=True)),
-                    }
-                except Exception:
-                    pass
-
         except Exception:
-            # DB models may not exist yet – fall back to client-sent context only
             pass
+
+        try:
+            # Diet & allergy preferences — stored in UserDiet / UserAllergy junction
+            # tables, NOT as M2M fields on UserProfile.
+            if not user_context.get("preferences"):
+                from authentication.models import UserDiet, UserAllergy
+                diets = list(
+                    UserDiet.objects
+                    .filter(user=user)
+                    .select_related("diet")
+                    .values_list("diet__name", flat=True)
+                )
+                allergies = list(
+                    UserAllergy.objects
+                    .filter(user=user)
+                    .select_related("allergy")
+                    .values_list("allergy__name", flat=True)
+                )
+                user_context["preferences"] = {
+                    "diets":     diets,
+                    "allergies": allergies,
+                    "cuisines":  [],   # No cuisine preference table; users filter by cuisine in the sidebar
+                }
+        except Exception:
+            pass
+
+        # Note: browsing history has no DB table (UserHistory was removed in migration
+        # 0002).  History comes exclusively from the client via localStorage /
+        # historyTracker.js and is already present in user_context["history"] if the
+        # client sent it.
 
     system_prompt = build_system_prompt(user, user_context)
 
-    # Build messages list for Claude
+    # ── Build messages list for Claude ─────────────────────────────────────────
     messages = []
 
-    # Inject prior turns from the session
-    for turn in conversation_history[-20:]:  # cap to last 20 turns
+    # Inject prior turns from the session (capped to last 20 to stay within context)
+    for turn in conversation_history[-20:]:
         role = turn.get("role")
         content = turn.get("content", "")
         if role in ("user", "assistant") and content:
@@ -278,6 +277,7 @@ def chat(request):
     # Add the new user message
     messages.append({"role": "user", "content": message})
 
+    # ── Call Claude ────────────────────────────────────────────────────────────
     try:
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
@@ -300,7 +300,7 @@ def chat(request):
 
     except anthropic.AuthenticationError:
         return Response(
-            {"error": "Invalid API key – set ANTHROPIC_API_KEY in settings."},
+            {"error": "Invalid API key – set ANTHROPIC_API_KEY in server/.env"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     except anthropic.RateLimitError:

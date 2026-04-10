@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Navbar from "../components/layout/Navbar";
-import NutritionPanel from "../components/recipe/NutritionPanel";
 import Sidebar from "../components/layout/Sidebar";
+import NutritionPanel from "../components/recipe/NutritionPanel";
 import RecipeGrid from "../components/recipe/RecipeGrid";
 import SearchPanel from "../components/search/SearchPanel";
 import { trackView } from "../utils/historyTracker";
@@ -25,8 +25,11 @@ export default function DiscoverPage() {
   const [total, setTotal] = useState(null);
   const [selected, setSelected] = useState(null);
   const [detailLoading, setDL] = useState(false);
-
   const [favourites, setFavourites] = useState(new Set());
+
+  // User's diet and allergy preferences fetched from the backend once on mount.
+  // Passed to SearchPanel so buildFilters() can merge them when the toggles are on.
+  const [userPrefs, setUserPrefs] = useState({ diets: [], allergies: [] });
 
   const detailCache = useRef({});
   const prefetchAborts = useRef({});
@@ -38,6 +41,29 @@ export default function DiscoverPage() {
 
   const isLoggedIn = !!localStorage.getItem("access");
 
+  // ── Fetch user prefs once (only for logged-in users) ──────────────────────
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    async function loadPrefs() {
+      try {
+        const res = await fetch(`${API}/profiles/me/`, {
+          headers: getAuthHeader(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUserPrefs({
+            diets: (data.diets ?? []).map((d) => d.toLowerCase()),
+            allergies: (data.allergies ?? []).map((a) => a.toLowerCase()),
+          });
+        }
+      } catch {
+        // Non-fatal — toggles just won't have any values to merge
+      }
+    }
+    loadPrefs();
+  }, [isLoggedIn]);
+
+  // ── Initial recipe load ────────────────────────────────────────────────────
   useEffect(() => {
     async function loadInitial() {
       setLoading(true);
@@ -60,6 +86,7 @@ export default function DiscoverPage() {
     loadInitial();
   }, []);
 
+  // ── Load favourites set ────────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
     async function loadFavourites() {
@@ -75,6 +102,7 @@ export default function DiscoverPage() {
     loadFavourites();
   }, [isLoggedIn]);
 
+  // ── Favourite toggle ───────────────────────────────────────────────────────
   async function handleToggleFavourite(recipe) {
     const id = recipe.external_id;
     const wasSaved = favourites.has(id);
@@ -91,7 +119,10 @@ export default function DiscoverPage() {
         headers: { "Content-Type": "application/json", ...getAuthHeader() },
         body: wasSaved
           ? null
-          : JSON.stringify({ title: recipe.title, image_url: recipe.image_url }),
+          : JSON.stringify({
+              title: recipe.title,
+              image_url: recipe.image_url,
+            }),
       });
 
       if (!res.ok && res.status !== 204) {
@@ -110,6 +141,7 @@ export default function DiscoverPage() {
     }
   }
 
+  // ── Hover prefetch ────────────────────────────────────────────────────────
   function handleCardHover(recipe) {
     const id = recipe.external_id;
     if (!id || detailCache.current[id] || prefetchAborts.current[id]) return;
@@ -124,7 +156,9 @@ export default function DiscoverPage() {
         if (data) detailCache.current[id] = data;
       })
       .catch(() => {})
-      .finally(() => { delete prefetchAborts.current[id]; });
+      .finally(() => {
+        delete prefetchAborts.current[id];
+      });
   }
 
   function handleCardHoverEnd(recipe) {
@@ -135,6 +169,7 @@ export default function DiscoverPage() {
     }
   }
 
+  // ── Card click — optimistic modal open ───────────────────────────────────
   async function handleCardClick(recipe) {
     const id = recipe.external_id;
 
@@ -148,7 +183,9 @@ export default function DiscoverPage() {
     setDL(true);
 
     try {
-      const res = await fetch(`${API}/recipes/${id}/`, { headers: getAuthHeader() });
+      const res = await fetch(`${API}/recipes/${id}/`, {
+        headers: getAuthHeader(),
+      });
       if (res.ok) {
         const full = await res.json();
         detailCache.current[id] = full;
@@ -161,6 +198,7 @@ export default function DiscoverPage() {
     }
   }
 
+  // ── Active filter pills ───────────────────────────────────────────────────
   const activePills = [
     ...(filters.diet ?? []).map((d) => ({
       label: d,
@@ -170,12 +208,27 @@ export default function DiscoverPage() {
     ...(filters.cuisine ?? []).map((c) => ({
       label: c,
       remove: () =>
-        setFilters((f) => ({ ...f, cuisine: f.cuisine.filter((x) => x !== c) })),
+        setFilters((f) => ({
+          ...f,
+          cuisine: f.cuisine.filter((x) => x !== c),
+        })),
     })),
     filters.maxTime !== "any" && {
       label: `< ${filters.maxTime} min`,
       remove: () => setFilters((f) => ({ ...f, maxTime: "any" })),
     },
+    // Show a pill when the user's diet profile is active
+    filters.useMyDiet &&
+      userPrefs.diets.length > 0 && {
+        label: `my diet (${userPrefs.diets.join(", ")})`,
+        remove: () => setFilters((f) => ({ ...f, useMyDiet: false })),
+      },
+    // Show a pill when allergy exclusion is active
+    filters.useMyAllergies &&
+      userPrefs.allergies.length > 0 && {
+        label: `excluding my allergies`,
+        remove: () => setFilters((f) => ({ ...f, useMyAllergies: false })),
+      },
   ].filter(Boolean);
 
   return (
@@ -189,7 +242,11 @@ export default function DiscoverPage() {
     >
       <Navbar />
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <Sidebar filters={filters} onChange={setFilters} />
+        <Sidebar
+          filters={filters}
+          onChange={setFilters}
+          userPrefs={userPrefs}
+        />
         <main
           style={{
             flex: 1,
@@ -228,8 +285,12 @@ export default function DiscoverPage() {
           <div className="animate-fade-up" style={{ animationDelay: "0.05s" }}>
             <SearchPanel
               filters={filters}
-              onResults={(r, t) => { setRecipes(r); setTotal(t); }}
+              onResults={(r, t) => {
+                setRecipes(r);
+                setTotal(t);
+              }}
               onLoading={setLoading}
+              userPrefs={userPrefs}
             />
           </div>
 
@@ -420,9 +481,9 @@ function RecipeModal({
   isFavourited,
   onToggleFavourite,
 }) {
-  const hasIngredients  = (recipe.ingredients   ?? []).length > 0;
-  const hasInstructions = (recipe.instructions  ?? []).length > 0;
-  const hasNutrition    = recipe.nutrition != null;
+  const hasIngredients = (recipe.ingredients ?? []).length > 0;
+  const hasInstructions = (recipe.instructions ?? []).length > 0;
+  const hasNutrition = recipe.nutrition != null;
 
   return (
     <div
@@ -489,7 +550,6 @@ function RecipeModal({
           />
         </div>
 
-        {/* Hero image */}
         {recipe.image_url && (
           <img
             src={recipe.image_url}
@@ -503,7 +563,6 @@ function RecipeModal({
           />
         )}
 
-        {/* Header */}
         <div
           style={{
             display: "flex",
@@ -529,7 +588,9 @@ function RecipeModal({
           {onToggleFavourite && (
             <button
               onClick={() => onToggleFavourite(recipe)}
-              title={isFavourited ? "Remove from favourites" : "Save to favourites"}
+              title={
+                isFavourited ? "Remove from favourites" : "Save to favourites"
+              }
               style={{
                 width: "2.5rem",
                 height: "2.5rem",
@@ -577,12 +638,16 @@ function RecipeModal({
         </div>
 
         <div style={{ padding: "1.25rem" }}>
-          {/* Meta */}
           <div
             style={{ display: "flex", gap: "1.5rem", marginBottom: "1.25rem" }}
           >
             {[
-              ["Time", recipe.ready_in_minutes ? `${recipe.ready_in_minutes} min` : "—"],
+              [
+                "Time",
+                recipe.ready_in_minutes
+                  ? `${recipe.ready_in_minutes} min`
+                  : "—",
+              ],
               ["Servings", recipe.servings ?? "—"],
             ].map(([label, val]) => (
               <div key={label}>
@@ -636,7 +701,6 @@ function RecipeModal({
             )}
           </div>
 
-          {/* Tags */}
           {(recipe.tags ?? []).length > 0 && (
             <div
               style={{
@@ -665,13 +729,11 @@ function RecipeModal({
             </div>
           )}
 
-          {/* ── Nutrition section ── */}
           <NutritionPanel
             nutrition={recipe.nutrition ?? null}
             loading={loading && !hasNutrition}
           />
 
-          {/* Ingredients */}
           <div
             style={{
               fontFamily: "Inter, sans-serif",
@@ -730,7 +792,6 @@ function RecipeModal({
             </div>
           ) : null}
 
-          {/* Steps */}
           <div
             style={{
               fontFamily: "Inter, sans-serif",
@@ -799,7 +860,6 @@ function RecipeModal({
   );
 }
 
-// ── Heart SVG ─────────────────────────────────────────────────────────────────
 function HeartIcon({ filled, size = 13 }) {
   return (
     <svg

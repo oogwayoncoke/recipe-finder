@@ -19,6 +19,12 @@ def _key():
 # ── DB search helpers ─────────────────────────────────────────────────────────
 
 def _db_search_by_name(query: str, filters: dict, limit: int):
+    # Skip DB cache when intolerances are set — cached recipes from
+    # _persist_basic have no ingredient rows so we can't filter locally.
+    # Let Spoonacular handle it via the intolerances param.
+    if filters.get('intolerances'):
+        return [], 0
+
     qs = Recipe.objects.filter(title__icontains=query)
 
     has_filters = (
@@ -73,17 +79,12 @@ def _persist_basic(data: dict) -> Recipe:
 
 
 def _persist_nutrition(recipe: Recipe, data: dict) -> None:
-    """
-    Extract macro nutrients from a Spoonacular response that was fetched
-    with includeNutrition=true and write them to the Nutrition table.
-    """
     nutrition_block = data.get('nutrition', {})
     nutrients_list  = nutrition_block.get('nutrients', [])
 
     if not nutrients_list:
         return
 
-    # Build a quick lookup by nutrient name
     nutrients = {n['name']: n['amount'] for n in nutrients_list}
 
     calories = nutrients.get('Calories')
@@ -91,7 +92,6 @@ def _persist_nutrition(recipe: Recipe, data: dict) -> None:
     carbs    = nutrients.get('Carbohydrates')
     fat      = nutrients.get('Fat')
 
-    # Only persist if we got at least calories
     if calories is None:
         return
 
@@ -136,7 +136,6 @@ def _persist_full(recipe: Recipe, data: dict) -> Recipe:
                 defaults={'amount': metric.get('amount'), 'unit': metric.get('unitShort', '')},
             )
 
-    # Persist nutrition if it came back in this response
     _persist_nutrition(recipe, data)
 
     return recipe
@@ -182,9 +181,10 @@ def search_by_name(query: str, filters: dict = None):
         'number':               limit,
         'addRecipeInformation': 'true',
     }
-    if filters.get('maxTime'):  params['maxReadyTime'] = filters['maxTime']
-    if filters.get('diet'):     params['diet']         = ','.join(filters['diet'])
-    if filters.get('cuisine'):  params['cuisine']      = ','.join(filters['cuisine'])
+    if filters.get('maxTime'):      params['maxReadyTime'] = filters['maxTime']
+    if filters.get('diet'):         params['diet']         = ','.join(filters['diet'])
+    if filters.get('cuisine'):      params['cuisine']      = ','.join(filters['cuisine'])
+    if filters.get('intolerances'): params['intolerances'] = ','.join(filters['intolerances'])
 
     search_data = _fetch_complex_search(params)
     results     = search_data.get('results', [])
@@ -237,11 +237,6 @@ def search_by_ingredients(ingredients: list, filters: dict = None):
 
 
 def fetch_recipe_detail(external_id: int):
-    """
-    Fetch full recipe detail from Spoonacular with nutrition included.
-    Results are cached in the DB — subsequent calls for the same recipe
-    are served from the DB without hitting the API.
-    """
     try:
         recipe = Recipe.objects.get(external_id=external_id)
         has_ingredients  = recipe.recipe_ingredients.exists()
@@ -250,12 +245,9 @@ def fetch_recipe_detail(external_id: int):
             recipe=recipe, calories__isnull=False
         ).exists()
 
-        # Fully cached — return immediately
         if has_ingredients and has_instructions and has_nutrition:
             return recipe
 
-        # Partially cached — still need to hit API to get what's missing
-        # (fall through to API call below)
     except Recipe.DoesNotExist:
         recipe = None
 
@@ -275,29 +267,81 @@ def fetch_recipe_detail(external_id: int):
 
 
 def browse(filters: dict = None):
-    """Filter-only browse — no query, no external API call."""
+    """
+    Filter-only browse — no query string.
+
+    When intolerances are present, skip the DB entirely and call
+    Spoonacular. The DB cache only has tag data (diets/cuisines) from
+    _persist_basic — it has no ingredient rows — so we cannot filter
+    by allergen locally.
+
+    Spoonacular's complexSearch requires either a query string OR a
+    type/diet param to return results. Without any of those it returns
+    an empty results list. So we pass type=main+course as a default
+    anchor when nothing else is set.
+    """
     filters = filters or {}
     limit   = filters.get('number', 12)
 
-    qs = Recipe.objects.all()
+    # DB path — only used when no intolerances are set
+    if not filters.get('intolerances'):
+        qs = Recipe.objects.all()
 
-    if filters.get('maxTime'):
-        qs = qs.filter(ready_in_minutes__lte=filters['maxTime'])
-    for d in filters.get('diet', []):
-        qs = qs.filter(recipe_tags__tag__name__icontains=d)
-    for c in filters.get('cuisine', []):
-        qs = qs.filter(recipe_tags__tag__name__icontains=c)
+        if filters.get('maxTime'):
+            qs = qs.filter(ready_in_minutes__lte=filters['maxTime'])
+        for d in filters.get('diet', []):
+            qs = qs.filter(recipe_tags__tag__name__icontains=d)
+        for c in filters.get('cuisine', []):
+            qs = qs.filter(recipe_tags__tag__name__icontains=c)
 
-    total   = qs.distinct().count()
-    recipes = list(qs.distinct().order_by('-id')[:limit])
-    return recipes, total
+        total   = qs.distinct().count()
+        recipes = list(qs.distinct().order_by('-id')[:limit])
+        if recipes:
+            return recipes, total
+
+    # Spoonacular path — used when intolerances are set, or DB is empty
+    params = {
+        'apiKey':               _key(),
+        'number':               limit,
+        'addRecipeInformation': 'true',
+        'sort':                 'popularity',
+        # Without a query, Spoonacular needs at least one content anchor
+        # to return results. type=main+course acts as that anchor.
+        'type':                 'main course',
+    }
+    if filters.get('maxTime'):      params['maxReadyTime'] = filters['maxTime']
+    if filters.get('diet'):         params['diet']         = ','.join(filters['diet'])
+    if filters.get('cuisine'):      params['cuisine']      = ','.join(filters['cuisine'])
+    if filters.get('intolerances'): params['intolerances'] = ','.join(filters['intolerances'])
+
+    try:
+        search_data = _fetch_complex_search(params)
+    except Exception:
+        # Quota exhausted or API down — fall back to DB with same filters
+        qs = Recipe.objects.all()
+        if filters.get('maxTime'):
+            qs = qs.filter(ready_in_minutes__lte=filters['maxTime'])
+        for d in filters.get('diet', []):
+            qs = qs.filter(recipe_tags__tag__name__icontains=d)
+        for c in filters.get('cuisine', []):
+            qs = qs.filter(recipe_tags__tag__name__icontains=c)
+        for allergy in filters.get('intolerances', []):
+            qs = qs.exclude(
+                recipe_ingredients__ingredient__name__icontains=allergy.strip()
+            )
+        total   = qs.distinct().count()
+        recipes = list(qs.distinct().order_by('-id')[:limit])
+        return recipes, total
+
+    results = search_data.get('results', [])
+    if not results:
+        return [], 0
+
+    recipes = [_persist_basic(item) for item in results]
+    return recipes, search_data.get('totalResults', len(recipes))
 
 
 def ensure_ingredients(external_id: int) -> Recipe:
-    """
-    Guarantees a recipe has ingredients persisted in the DB.
-    Used by the grocery list to backfill recipes added from search cards.
-    """
     try:
         recipe = Recipe.objects.get(external_id=external_id)
         if recipe.recipe_ingredients.exists():

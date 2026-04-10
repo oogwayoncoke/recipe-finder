@@ -19,8 +19,13 @@ const CUISINE_FILTERS = [
   { slug: "mexican", label: "Mexican" },
 ];
 
-export default function Sidebar({ filters, onChange }) {
+export default function Sidebar({ filters, onChange, userPrefs }) {
   const [section, setSection] = useState("filters");
+
+  // userPrefs = { diets: string[], allergies: string[] } passed down from DiscoverPage.
+  // Used to show what values the toggles will apply, and to disable them when empty.
+  const hasDietPrefs = (userPrefs?.diets ?? []).length > 0;
+  const hasAllergyPrefs = (userPrefs?.allergies ?? []).length > 0;
 
   function toggleFilter(type, slug) {
     const current = filters[type] ?? [];
@@ -39,7 +44,9 @@ export default function Sidebar({ filters, onChange }) {
   const hasActive =
     filters.maxTime !== "any" ||
     (filters.diet ?? []).length > 0 ||
-    (filters.cuisine ?? []).length > 0;
+    (filters.cuisine ?? []).length > 0 ||
+    filters.useMyDiet ||
+    filters.useMyAllergies;
 
   return (
     <aside
@@ -141,6 +148,8 @@ export default function Sidebar({ filters, onChange }) {
                     maxTime: "any",
                     diet: [],
                     cuisine: [],
+                    useMyDiet: false,
+                    useMyAllergies: false,
                   })
                 }
                 style={{
@@ -192,18 +201,38 @@ export default function Sidebar({ filters, onChange }) {
           ))}
 
           <FilterLabel>PREFERENCES</FilterLabel>
+
+          {/* Use my diet profile */}
           <FilterItem
             active={filters.useMyDiet}
-            onClick={() =>
-              onChange({ ...filters, useMyDiet: !filters.useMyDiet })
+            disabled={!hasDietPrefs}
+            onClick={() => {
+              if (!hasDietPrefs) return;
+              onChange({ ...filters, useMyDiet: !filters.useMyDiet });
+            }}
+            tooltip={
+              !hasDietPrefs
+                ? "Set your diet in Profile"
+                : hasDietPrefs
+                  ? `Applies: ${(userPrefs?.diets ?? []).join(", ")}`
+                  : undefined
             }
           >
             Use my diet profile
           </FilterItem>
+
+          {/* Exclude my allergies */}
           <FilterItem
             active={filters.useMyAllergies}
-            onClick={() =>
-              onChange({ ...filters, useMyAllergies: !filters.useMyAllergies })
+            disabled={!hasAllergyPrefs}
+            onClick={() => {
+              if (!hasAllergyPrefs) return;
+              onChange({ ...filters, useMyAllergies: !filters.useMyAllergies });
+            }}
+            tooltip={
+              !hasAllergyPrefs
+                ? "Set your allergies in Profile"
+                : `Excludes: ${(userPrefs?.allergies ?? []).join(", ")}`
             }
           >
             Exclude my allergies
@@ -230,10 +259,11 @@ function FilterLabel({ children }) {
   );
 }
 
-function FilterItem({ children, active, onClick }) {
+function FilterItem({ children, active, disabled, onClick, tooltip }) {
   return (
     <button
       onClick={onClick}
+      title={tooltip}
       style={{
         display: "flex",
         alignItems: "center",
@@ -248,18 +278,23 @@ function FilterItem({ children, active, onClick }) {
         borderLeft: active
           ? "2px solid var(--accent)"
           : "2px solid transparent",
-        color: active ? "var(--accent)" : "var(--text-muted)",
-        cursor: "pointer",
+        color: disabled
+          ? "var(--text-dim)"
+          : active
+            ? "var(--accent)"
+            : "var(--text-muted)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
         transition: "all 0.1s",
       }}
       onMouseEnter={(e) => {
-        if (!active) {
+        if (!active && !disabled) {
           e.currentTarget.style.color = "var(--text)";
           e.currentTarget.style.backgroundColor = "var(--bg-hover)";
         }
       }}
       onMouseLeave={(e) => {
-        if (!active) {
+        if (!active && !disabled) {
           e.currentTarget.style.color = "var(--text-muted)";
           e.currentTarget.style.backgroundColor = "transparent";
         }
