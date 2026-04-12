@@ -235,25 +235,28 @@ def chat(request):
         try:
             # Diet & allergy preferences — stored in UserDiet / UserAllergy junction
             # tables, NOT as M2M fields on UserProfile.
-            if not user_context.get("preferences"):
-                from authentication.models import UserDiet, UserAllergy
-                diets = list(
-                    UserDiet.objects
-                    .filter(user=user)
-                    .select_related("diet")
-                    .values_list("diet__name", flat=True)
-                )
-                allergies = list(
-                    UserAllergy.objects
-                    .filter(user=user)
-                    .select_related("allergy")
-                    .values_list("allergy__name", flat=True)
-                )
-                user_context["preferences"] = {
-                    "diets":     diets,
-                    "allergies": allergies,
-                    "cuisines":  [],   # No cuisine preference table; users filter by cuisine in the sidebar
-                }
+            # Always pull from DB and merge — the client may send an empty list
+            # even when the user has saved preferences, so we never skip this.
+            from authentication.models import UserDiet, UserAllergy
+            db_diets = list(
+                UserDiet.objects
+                .filter(user=user)
+                .select_related("diet")
+                .values_list("diet__name", flat=True)
+            )
+            db_allergies = list(
+                UserAllergy.objects
+                .filter(user=user)
+                .select_related("allergy")
+                .values_list("allergy__name", flat=True)
+            )
+            existing = user_context.get("preferences", {})
+            # DB values win if client sent nothing for that field
+            user_context["preferences"] = {
+                "diets":     existing.get("diets") or db_diets,
+                "allergies": existing.get("allergies") or db_allergies,
+                "cuisines":  existing.get("cuisines", []),
+            }
         except Exception:
             pass
 
@@ -276,6 +279,26 @@ def chat(request):
 
     # Add the new user message
     messages.append({"role": "user", "content": message})
+
+    # ── Mock mode — returns fake response without calling Anthropic ────────────
+    if getattr(settings, "CHATBOT_MOCK", False):
+        diets     = user_context.get("preferences", {}).get("diets", [])
+        allergies = user_context.get("preferences", {}).get("allergies", [])
+        favs      = [f.get("title", "?") for f in user_context.get("favourites", [])[:3]]
+
+        mock_reply = (
+            f"**[MOCK MODE — no Anthropic credits used]**\n\n"
+            f"I received your message: *\"{message}\"*\n\n"
+            f"**Context I can see:**\n"
+            f"- Page: {user_context.get('current_page', 'unknown')}\n"
+            f"- Diets: {', '.join(diets) if diets else 'none set'}\n"
+            f"- Allergies: {', '.join(allergies) if allergies else 'none set'}\n"
+            f"- Top favourites: {', '.join(favs) if favs else 'none saved'}\n"
+            f"- Conversation turns so far: {len(messages)}\n\n"
+            f"Set `CHATBOT_MOCK = False` in settings.py and add a real "
+            f"`ANTHROPIC_API_KEY` to get live responses."
+        )
+        return Response({"reply": mock_reply})
 
     # ── Call Claude ────────────────────────────────────────────────────────────
     try:
