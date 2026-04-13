@@ -27,13 +27,7 @@ Guest browsing is supported with no account required. Sign up to unlock favourit
 
 ---
 
-## Screenshots
 
-| Get Started | Discover | Recipe Detail |
-|---|---|---|
-| Dark split-panel onboarding with "Cook with intention." | Sidebar filters + recipe grid | Bottom-sheet modal with ingredients, steps & nutrition |
-
----
 
 ## Tech Stack
 
@@ -45,8 +39,8 @@ Guest browsing is supported with no account required. Sign up to unlock favourit
 │   JWT Auth · PostgreSQL · DRF 3.16      │
 └──────────────┬──────────────────────────┘
                │  JSON over HTTP
-       ┌───────┴────────┐
-       │                │
+       ┌───────┴
+       │                
 ┌──────▼──────┐
 │  React Web  │
 │  (Vite 8)   │
