@@ -27,8 +27,6 @@ Guest browsing is supported with no account required. Sign up to unlock favourit
 
 ---
 
-
-
 ## Tech Stack
 
 ### Architecture
@@ -39,8 +37,8 @@ Guest browsing is supported with no account required. Sign up to unlock favourit
 │   JWT Auth · PostgreSQL · DRF 3.16      │
 └──────────────┬──────────────────────────┘
                │  JSON over HTTP
-       ┌───────┴
-       │                
+       ┌───────┘
+       │
 ┌──────▼──────┐
 │  React Web  │
 │  (Vite 8)   │
@@ -119,8 +117,7 @@ dish/
 │   │   ├── models.py          # Recipe, Nutrition, Instructions, Ingredient, RecipeIngredient, Tag, RecipeTag
 │   │   ├── spoonacular.py     # DB-first API client with parallel fetches
 │   │   ├── serializers.py     # RecipeBasicSerializer, RecipeSerializer, NutritionSerializer
-│   │   ├── views.py           # RecipeListView, RecipeSearchView, RecipeDetailView (all public)
-│   │   └── management/commands/backfill_nutrition.py
+│   │   └── views.py           # RecipeListView, RecipeSearchView, RecipeDetailView (all public)
 │   ├── likes/
 │   │   ├── models.py          # UserFavourite — direct FK to recipes.Recipe
 │   │   └── views.py           # FavouriteToggleView, FavouriteListView, FavouriteStatusView
@@ -143,7 +140,7 @@ dish/
         │   ├── AuthContext.jsx   # user, login, register, logout, loginWithTokens, loading
         │   ├── ThemeContext.jsx  # dark/light toggle — .light class on <html>
         │   ├── ToastContext.jsx  # showToast(message, type) — auto-dismiss
-        │   └── ChatContext.jsx   # buildContext(currentRecipe) for chatbot payload
+        │   └── ChatContext.jsx   # useChatContext() / buildContext(currentRecipe) for chatbot payload
         ├── pages/
         │   ├── GetStartedPage.jsx
         │   ├── DietSetupPage.jsx
@@ -242,6 +239,7 @@ DEFAULT_FROM_EMAIL=noreply@dish.app
 
 > `SECRET_KEY` is hardcoded in `settings.py` — acceptable for development. Replace with an env var before any production deployment.
 > Email backend prints to the terminal in development (`console.EmailBackend`). Swap to SMTP before deploying.
+> `CHATBOT_MOCK=True` is set in `settings.py` by default — the chatbot returns fake responses without spending Anthropic API credits. Set to `False` and add a real `ANTHROPIC_API_KEY` to enable live responses.
 
 ### `web/.env`
 
@@ -249,6 +247,8 @@ DEFAULT_FROM_EMAIL=noreply@dish.app
 VITE_API_URL=http://127.0.0.1:8000
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ```
+
+> **No leading whitespace** in `VITE_API_URL` — a leading space will cause all API calls to fail.
 
 ---
 
@@ -375,11 +375,11 @@ Returning users go directly to `/login` → `/discover`.
 
 ### No `/api/` prefix
 
-Endpoints are mounted directly at the root: `/authentication/`, `/recipes/`, etc. Both `api.js` (Axios) and raw `fetch` calls in the frontend use `http://127.0.0.1:8000` as the base URL. The older README badge incorrectly showed `/api/...` paths.
+Endpoints are mounted directly at the root: `/authentication/`, `/recipes/`, etc. Both `api.js` (Axios) and raw `fetch` calls in the frontend use `http://127.0.0.1:8000` as the base URL.
 
 ### Favourites use a direct ForeignKey
 
-`UserFavourite` points directly to `recipes.Recipe` via a `ForeignKey`, not through Django's `ContentType` / `GenericForeignKey` framework. The app only ever favourites recipes, so the generic approach added complexity with no benefit. `unique_together` prevents duplicate rows.
+`UserFavourite` (in the `likes` app) points directly to `recipes.Recipe` via a `ForeignKey`, not through Django's `ContentType` / `GenericForeignKey` framework. The app only ever favourites recipes, so the generic approach added complexity with no benefit. `unique_together` prevents duplicate rows.
 
 ### JWT decoded client-side
 
@@ -387,11 +387,15 @@ Endpoints are mounted directly at the root: `/authentication/`, `/recipes/`, etc
 
 ### Browsing history is localStorage-only
 
-The `UserHistory` / `History` DB model was removed in migration `0002`. Recipe viewing history is written exclusively to `localStorage` via `historyTracker.js` and sent to the chatbot via `ChatContext.buildContext()`. There is no server-side history persistence.
+The `History` DB model was removed from the `recipes` app in migration `0002`. Recipe viewing history is written exclusively to `localStorage` via `historyTracker.js` and sent to the chatbot via `useChatContext().buildContext()`. There is no server-side history persistence.
 
 ### Diet / allergy prefs live in junction tables
 
-`UserProfile` holds only `avatar`, `bio`, and `updated_at`. Dietary data lives in `UserDiet` (FK → `Diet`) and `UserAllergy` (FK → `Allergy`) junction tables — not as M2M fields on `UserProfile`. Any code that calls `profile.diets` or `profile.allergies` will fail.
+`UserProfile` holds only `avatar`, `bio`, and `updated_at`. Dietary data lives in `UserDiet` (FK → `Diet`) and `UserAllergy` (FK → `Allergy`) junction tables — not as M2M fields on `UserProfile`. Any code that calls `profile.diets` or `profile.allergies` will fail. Use `UserDiet.objects.filter(user=user)` and `UserAllergy.objects.filter(user=user)` instead.
+
+### JWT token lifetimes
+
+Access token lifetime is **30 minutes**. Refresh token lifetime is **1 day**. These are set in `SIMPLE_JWT` in `settings.py`. The Axios interceptor in `api.js` silently renews expired access tokens using the refresh token — users never see a login prompt unless the refresh token has also expired.
 
 ---
 
@@ -419,16 +423,19 @@ Font: **Inter** — 400/500 weights throughout.
 
 | Issue | Detail |
 |---|---|
-| No `/api/` prefix | All routes mount at root. The old README showed `/api/...` — that was wrong. |
-| `create_user.py` filename | The file is `server/authentication/views/create_user.py`. Do not rename — other imports depend on this name. |
-| Axios vs raw `fetch` | `api.js` uses Axios with silent JWT refresh. `SearchPanel`, `DishChatbot`, and `DiscoverPage` use raw `fetch()` — those paths do not auto-refresh expired tokens. |
-| `VITE_API_URL` inconsistency | `api.js` hardcodes `baseURL` to `http://127.0.0.1:8000` but the 401-refresh call uses `import.meta.env.VITE_API_URL`. Keep both in sync. |
+| No `/api/` prefix | All routes mount at root. Any code or docs referencing `/api/...` paths is wrong. |
+| `CHATBOT_MOCK` defaults to `True` | The chatbot returns fake data in development. Set to `False` in `settings.py` and provide a real `ANTHROPIC_API_KEY` to get live responses. |
+| `VITE_API_URL` leading space | `web/.env` must not have a leading space before the URL value — it will silently break all API calls. |
+| Axios vs raw `fetch` | `api.js` uses Axios with silent JWT refresh. `SearchPanel`, `DishChatbot`, `DiscoverPage`, `LikesPage`, `MealPlannerPage`, and `GroceryListPage` use raw `fetch()` — those paths do not auto-refresh expired tokens. |
+| `VITE_API_URL` inconsistency | `api.js` hardcodes `baseURL` to `http://127.0.0.1:8000` but the 401-refresh call reads `import.meta.env.VITE_API_URL`. Keep both in sync. |
 | Diet/allergy junction tables | `UserProfile` has no `diets` or `allergies` M2M fields. Use `UserDiet.objects.filter(user=user)` and `UserAllergy.objects.filter(user=user)` instead. |
-| No `UserHistory` model | The `History` / `UserHistory` DB model was deleted in migration `0002`. History is `localStorage`-only. |
+| No `History` DB model | The `History` DB model was deleted from the `recipes` app in migration `0002`. History is `localStorage`-only via `historyTracker.js`. |
 | `PATCH /profiles/me/` is replace-all | Sending `diets` replaces all existing rows — not a merge. Send the complete desired list every time. |
 | Spoonacular `ready_in_minutes` | Spoonacular often returns `45` for missing times. The codebase treats `45` as a sentinel and skips updating the DB with it. |
-| UUID primary key | Must be set on `User` before the first migration. Cannot be changed after. |
+| UUID primary key | The `User` model uses a field named `UUID` (uppercase) as the primary key. Must be set before the first migration. Cannot be changed after. |
 | Grocery list backfill | `GroceryListView` calls `spoonacular.ensure_ingredients()` for any meal-plan recipe with no ingredient rows. This may trigger live Spoonacular API calls at grocery-list load time. |
+| Token lifetimes | Access token is **30 minutes**, refresh token is **1 day** (set in `settings.py` `SIMPLE_JWT`). |
+| `UserFavourite` app | Lives in the `likes` app (`likes.models.UserFavourite`), not in `recipes`. Import from the correct location. |
 
 ---
 
