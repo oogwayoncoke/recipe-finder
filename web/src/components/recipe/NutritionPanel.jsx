@@ -182,7 +182,7 @@ export default function NutritionPanel({ nutrition, loading }) {
               opacity: 0.7,
             }}
           >
-            Powered by Edamam · estimates only
+            Powered by Spoonacular · estimates only
           </p>
         </div>
       )}
